@@ -1,0 +1,209 @@
+/* ChatBubble Styles */
+
+.chat-bubble-wrapper {
+  display: flex;
+  gap: var(--space-sm);
+  max-width: 85%;
+  margin-bottom: var(--space-md);
+}
+
+.chat-bubble-wrapper.user {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.chat-bubble-wrapper.assistant {
+  margin-right: auto;
+}
+
+.bubble-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--avatar-color);
+}
+
+.chat-bubble {
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+.user-bubble {
+  background: var(--accent-gradient);
+  color: white;
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.user-bubble p {
+  color: white;
+  margin: 0;
+}
+
+.assistant-bubble {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.agent-label {
+  display: inline-block;
+  margin-bottom: var(--space-sm);
+  font-size: 0.7rem;
+  text-transform: capitalize;
+}
+
+.bubble-content {
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.bubble-content p {
+  margin-bottom: var(--space-sm);
+}
+
+.bubble-content p:last-child {
+  margin-bottom: 0;
+}
+
+.bubble-content h1,
+.bubble-content h2,
+.bubble-content h3 {
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.bubble-content ul,
+.bubble-content ol {
+  padding-left: var(--space-lg);
+  margin-bottom: var(--space-sm);
+}
+
+.bubble-content li {
+  margin-bottom: var(--space-xs);
+  color: var(--text-secondary);
+}
+
+.bubble-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--space-sm) 0;
+}
+
+.bubble-content th,
+.bubble-content td {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border-subtle);
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.bubble-content th {
+  background: var(--bg-elevated);
+  font-weight: 600;
+}
+
+.code-block {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) !important;
+  margin: var(--space-sm) 0;
+  overflow-x: auto;
+  font-size: 0.85rem;
+}
+
+.bubble-actions {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.chat-bubble:hover .bubble-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+}
+
+.action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Attachments inside Chat Bubble */
+.message-attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  width: 100%;
+}
+
+.message-attachment-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.message-attachment-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* User attachments card customization */
+.user-bubble .message-attachment-card {
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.user-bubble .message-attachment-card:hover {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.message-attachment-card .file-icon {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.user-bubble .message-attachment-card .file-icon {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message-attachment-card .file-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.message-attachment-card .file-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.message-attachment-card .file-size {
+  font-size: 0.72rem;
+  opacity: 0.7;
+  margin-top: 1px;
+}

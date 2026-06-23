@@ -1,0 +1,84 @@
+/* Shared Agent Page Styles */
+
+.agent-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 56px);
+}
+
+.agent-page-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Agent Hero */
+
+.agent-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-3xl) var(--space-xl);
+  gap: var(--space-md);
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.agent-hero h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f0f0ff 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.agent-hero > p {
+  color: var(--text-tertiary);
+  max-width: 450px;
+}
+
+/* Hero Suggestions */
+
+.hero-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  justify-content: center;
+  margin-top: var(--space-md);
+  max-width: 600px;
+}
+
+.suggestion-pill {
+  font-size: 0.82rem;
+  padding: var(--space-sm) var(--space-md);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .agent-hero {
+    padding: var(--space-xl) var(--space-md);
+  }
+
+  .agent-hero h2 {
+    font-size: 1.5rem;
+  }
+
+  .suggestion-pill {
+    font-size: 0.75rem;
+    white-space: normal;
+    text-align: left;
+  }
+}

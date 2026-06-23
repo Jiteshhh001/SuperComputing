@@ -1,0 +1,40 @@
+/* TypingIndicator Styles */
+
+.typing-indicator-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  max-width: 200px;
+}
+
+.typing-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.typing-bubble {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.typing-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.typing-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}

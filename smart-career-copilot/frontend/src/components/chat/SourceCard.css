@@ -1,0 +1,40 @@
+/* SourceCard Styles */
+
+.source-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-sm) var(--space-md);
+  min-width: 180px;
+  max-width: 220px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.source-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.source-domain {
+  max-width: 150px;
+}
+
+.source-title {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.source-snippet {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
