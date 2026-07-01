@@ -217,7 +217,7 @@ def gap_severity_chart(gaps: list[dict], title: str = "Weak Topic Analysis") -> 
     ))
     fig.update_layout(
         title=title,
-        xaxis_title="Weakness Confidence",
+        xaxis_title="Risk of scoring below 50% on next assessment",
         xaxis=dict(range=[0, 1]),
         height=max(250, len(gaps) * 50),
     )
