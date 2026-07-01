@@ -1,5 +1,4 @@
-# 🚀 SuperComputing Internship Portfolio
-**NVIDIA DGX Summer Internship (2025-26)**
+# SuperComputing Internship
 
 This repository contains the assignments, notebooks, and projects completed during my Summer Internship focused on AI, Machine Learning, and NVIDIA DGX Infrastructure. The curriculum progressed from foundational ML concepts to advanced Deep Learning, culminating in production-grade Agentic AI systems and a comprehensive Capstone Project.
 
