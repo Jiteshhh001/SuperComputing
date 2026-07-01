@@ -1,0 +1,33 @@
+# Dependencies for the LearnFlow AI dashboard (Final project/app/streamlit_app.py).
+# Streamlit Community Cloud reads this file from the repository root.
+# Python dependencies for LearnFlow AI (Python 3.10+)
+# Data science
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Machine learning / deep learning
+scikit-learn>=1.3.0
+xgboost-cpu>=2.1.0
+# CPU-only PyTorch for Linux hosts (small download); default wheel elsewhere
+torch @ https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp310-cp310-manylinux_2_28_x86_64.whl ; sys_platform == "linux" and platform_machine == "x86_64" and python_version == "3.10"
+torch @ https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl ; sys_platform == "linux" and platform_machine == "x86_64" and python_version == "3.11"
+torch @ https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl ; sys_platform == "linux" and platform_machine == "x86_64" and python_version == "3.12"
+torch @ https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl ; sys_platform == "linux" and platform_machine == "x86_64" and python_version == "3.13"
+torch @ https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl ; sys_platform == "linux" and platform_machine == "x86_64" and python_version == "3.14"
+torch>=2.0.0 ; sys_platform != "linux" or platform_machine != "x86_64"
+
+# LLM access and utilities
+httpx>=0.25.0
+requests>=2.31.0
+tqdm>=4.66.0
+python-dotenv>=1.0.0
+
+# API backend
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+
+# Dashboard
+streamlit>=1.28.0
+plotly>=5.18.0
