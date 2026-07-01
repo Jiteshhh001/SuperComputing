@@ -1,6 +1,6 @@
-# CoE – Supercomputing Summer Internship — Jitesh Kumar
+# Super Computing Summer Internship — Jitesh Kumar
 
-Assignments, notebooks and projects completed during the **3-Week Summer Internship (10 – 30 June 2026)** at **CoE – Supercomputing (Center of Supercomputing), KIET Group of Institutions, Ghaziabad** (organized with IIPC and IICC; NVIDIA DGX infrastructure; offline at the Supercomputing Center, H Block). The programme progressed from foundational Machine Learning to Deep Learning and Agentic AI, and ended with an end-to-end capstone project.
+Assignments, notebooks and projects completed during the **3-Week Summer Internship (10 – 30 June 2026)** at **Center of Supercomputing, KIET Group of Institutions, Ghaziabad** (organized with IIPC and IICC; NVIDIA DGX infrastructure; offline at the Supercomputing Center, H Block). The programme progressed from foundational Machine Learning to Deep Learning and Agentic AI, and ended with an end-to-end capstone project.
 
 | | |
 |---|---|
@@ -45,7 +45,7 @@ Assignments, notebooks and projects completed during the **3-Week Summer Interns
 
 | Project | Description | Links |
 |---|---|---|
-| **LearnFlow AI — Personalized Learning Agent** | Deep Knowledge Tracing (LSTM) and XGBoost gap detection on OULAD + UCI data, an LLM-based recommender with an offline fallback catalog, a 5-tool agent with 4-layer memory and an 11-page Streamlit dashboard with a FastAPI backend. | [Project folder](Final%20project/) · [README](Final%20project/README.md) |
+| **LearnFlow AI — Personalized Learning Agent** | Deep Knowledge Tracing (LSTM) and XGBoost gap detection on OULAD + UCI data, an LLM-based recommender with an offline fallback catalog, a 5-tool agent with 4-layer memory and an 11-page Streamlit dashboard with a FastAPI backend. | [Live demo](https://supercomputinginternship.streamlit.app/) · [Project folder](Final%20project/) · [README](Final%20project/README.md) |
 
 ---
 

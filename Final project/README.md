@@ -9,6 +9,8 @@
 
 # 🧠 LearnFlow AI — Personalized Student Learning Agent
 
+🔗 **Live demo:** https://supercomputinginternship.streamlit.app/ *(the app may take a few seconds to wake up)*
+
 An end-to-end ML/DL pipeline that analyzes student performance data, identifies weak knowledge areas using **Deep Knowledge Tracing (LSTM)**, detects learning gaps with **XGBoost**, recommends resources with an **LLM-based recommender** (OpenRouter) backed by a curated offline catalog, and delivers personalized 7-day study plans through an **AI agent** — all surfaced in an elegant **11-page Streamlit dashboard**.
 
 ---
