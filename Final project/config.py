@@ -25,7 +25,12 @@ for _dir in [RAW_DIR, PROCESSED_DIR, MODELS_DIR, RESOURCES_DIR,
     _dir.mkdir(parents=True, exist_ok=True)
 
 # ── Dataset URLs ─────────────────────────────────────────────────────────────
-OULAD_URL = "https://analyse.kmi.open.ac.uk/open_dataset/download"
+# UCI Machine Learning Repository mirror first (the Open University page now redirects to HTML)
+OULAD_URLS = [
+    "https://archive.ics.uci.edu/static/public/349/open+university+learning+analytics+dataset.zip",
+    "https://analyse.kmi.open.ac.uk/open_dataset/download",
+]
+OULAD_URL = OULAD_URLS[0]
 UCI_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/00320/student.zip"
 
 # OULAD table names (the dataset contains these CSV files)
@@ -34,38 +39,55 @@ OULAD_TABLES = [
     "studentInfo", "studentRegistration", "studentVle", "vle"
 ]
 
-# ── Module/Subject Mapping ───────────────────────────────────────────────────
-MODULE_NAMES = {
-    "AAA": "Social Sciences",
-    "BBB": "Technology & IT",
-    "CCC": "Mathematics (STEM)",
-    "DDD": "Health Sciences",
-    "EEE": "Business & Economics",
-    "FFF": "Humanities",
-    "GGG": "Arts & Design"
+# ── Module / Domain Mapping ─────────────────────────────────────────────────
+# OULAD anonymises module names; the dataset documentation only gives the domain.
+MODULE_DOMAINS = {
+    "AAA": "Social Sciences", "BBB": "Social Sciences", "GGG": "Social Sciences",
+    "CCC": "STEM", "DDD": "STEM", "EEE": "STEM", "FFF": "STEM",
 }
+ASSESSMENT_TYPE_NAMES = {"TMA": "Assignments", "CMA": "Quizzes", "Exam": "Exam"}
+
 
 def format_module_name(code: str) -> str:
-    """Convert raw code (e.g., 'AAA', 'AAA_TMA') to readable format."""
+    """Readable label, e.g. 'CCC_TMA' -> 'CCC · STEM (Assignments)'."""
     if not isinstance(code, str):
         return str(code)
-    
-    base = code.split('_')[0]
-    subject = MODULE_NAMES.get(base, base)
-    
-    if "_" in code:
-        suffix = code.split('_')[1]
-        suffix_map = {"TMA": "Assignments", "CMA": "Quizzes", "Exam": "Exams"}
-        return f"{subject} ({suffix_map.get(suffix, suffix)})"
-    
-    return subject
+    base, _, suffix = code.partition("_")
+    domain = MODULE_DOMAINS.get(base)
+    label = f"{base} · {domain}" if domain else base
+    if suffix:
+        if suffix.startswith("vle_"):
+            return f"{label} (VLE: {suffix[4:]})"
+        return f"{label} ({ASSESSMENT_TYPE_NAMES.get(suffix, suffix)})"
+    return label
+
 
 # ── OpenRouter LLM Configuration ────────────────────────────────────────────
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+def get_openrouter_api_key() -> str:
+    """API key from the environment / .env, or from Streamlit secrets when deployed."""
+    key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        import streamlit as st
+        return str(st.secrets.get("OPENROUTER_API_KEY", "")).strip()
+    except Exception:
+        return ""
+
+
+OPENROUTER_API_KEY = get_openrouter_api_key()
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/llama-4-scout:free")
+# Free-tier models change often; the client tries these in order and remembers what works.
+LLM_MODEL = os.getenv("LLM_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
+LLM_FALLBACK_MODELS = [
+    "nvidia/nemotron-3.5-lightning:free",
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "openrouter/free",
+]
 LLM_TEMPERATURE = 0.3
-LLM_MAX_TOKENS = 2048
+LLM_MAX_TOKENS = 1200
+LLM_TIMEOUT_SECONDS = 30
 
 # ── DKT Model (LSTM) Hyperparameters ────────────────────────────────────────
 DKT_CONFIG = {
@@ -99,28 +121,9 @@ XGBOOST_CONFIG = {
     "random_state": 42,
 }
 
-# ── Hybrid Recommender ──────────────────────────────────────────────────────
-RECOMMENDER_CONFIG = {
-    # Collaborative Filtering (SVD)
-    "svd_n_factors": 50,
-    "svd_n_epochs": 30,
-    "svd_lr_all": 0.005,
-    "svd_reg_all": 0.02,
-    # Content-Based Filtering
-    "cbf_embedding_model": "all-MiniLM-L6-v2",
-    "cbf_top_k": 10,
-    # LLM Ranking
-    "llm_rerank_top_n": 5,
-    # Hybrid Weights
-    "cf_weight": 0.4,
-    "cbf_weight": 0.35,
-    "llm_weight": 0.25,
-    # Output
-    "top_k_recommendations": 5,
-}
-
 # ── Thresholds ──────────────────────────────────────────────────────────────
 MASTERY_THRESHOLD = 0.4        # Below this = weak concept
+GAP_SCORE_THRESHOLD = 0.5      # Gap detector target: next assessment score below 50%
 AT_RISK_THRESHOLD = 0.5        # Below this = at-risk student
 ENGAGEMENT_LOW_THRESHOLD = 0.3 # Below this = low engagement
 IMPROVEMENT_SIGNIFICANT = 0.1  # 10% improvement = significant

@@ -1,6 +1,6 @@
 """
 ═══════════════════════════════════════════════════════════════════════════════
-  Agent Tools — 5 LangChain @tool definitions for the learning agent
+  Agent Tools — the 5 tools used by the learning agent
   Each tool wraps a model/service and returns structured results.
 ═══════════════════════════════════════════════════════════════════════════════
 """
@@ -18,7 +18,7 @@ import torch
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from config import MODELS_DIR, PROCESSED_DIR, MASTERY_LEVELS
+from config import MODELS_DIR, PROCESSED_DIR, MASTERY_LEVELS, format_module_name
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,9 @@ class AgentTools:
     Each tool loads models lazily and caches them.
     """
 
-    def __init__(self):
+    def __init__(self, llm=None):
+        self.llm = llm
+        self._dkt_index = None
         self._dkt_trainer = None
         self._gap_detector = None
         self._recommender = None
@@ -61,8 +63,8 @@ class AgentTools:
     def _load_recommender(self):
         if self._recommender is None:
             try:
-                from src.models.recommender import DynamicLLMRecommender
-                self._recommender = DynamicLLMRecommender()
+                from src.models.recommender import Recommender
+                self._recommender = Recommender(llm=self.llm)
             except Exception as e:
                 logger.warning(f"Could not load Recommender: {e}")
         return self._recommender
@@ -104,6 +106,11 @@ class AgentTools:
                 self._interaction_matrix = pd.DataFrame()
         return self._interaction_matrix
 
+    def _dkt_student_index(self, dkt_data: dict) -> dict:
+        if self._dkt_index is None:
+            self._dkt_index = {int(sid): i for i, sid in enumerate(dkt_data.get("student_ids", []))}
+        return self._dkt_index
+
     # ═══════════════════════════════════════════════════════════════════════
     #  Tool 1: Knowledge Tracer
     # ═══════════════════════════════════════════════════════════════════════
@@ -118,38 +125,39 @@ class AgentTools:
         # Try to load trained DKT model
         trainer = self._load_dkt()
         dkt_data = self._load_dkt_data()
-
         concept_map = dkt_data.get("concept_map", {})
+        student_index = self._dkt_student_index(dkt_data)
+        gap_features = self._load_gap_features()
+        student_rows = (gap_features[gap_features["id_student"] == student_id]
+                        if not gap_features.empty else pd.DataFrame())
 
-        # Check if student has sequences
-        student_ids = dkt_data.get("student_ids", [])
+        mastery_values: dict[str, float] = {}
+        attempted: set[str] = set()
+        source = "none"
 
-        if trainer and student_id in student_ids:
-            idx = student_ids.index(student_id)
-            seq = dkt_data["sequences"][idx]
-
-            # Prepare tensors
-            concept_ids = torch.tensor([[s[0] for s in seq]], dtype=torch.long)
-            responses = torch.tensor([[s[1] for s in seq]], dtype=torch.long)
+        if trainer and student_id in student_index:
+            seq = dkt_data["sequences"][student_index[student_id]]
+            concept_ids = torch.tensor([[int(x[0]) for x in seq]], dtype=torch.long)
+            responses = torch.tensor([[int(x[1]) for x in seq]], dtype=torch.long)
             lengths = torch.tensor([len(seq)], dtype=torch.long)
-
-            # Get knowledge state
             state = trainer.model.get_knowledge_state(concept_ids, responses, lengths)
-            mastery = state["mastery"]
-        else:
-            # Fallback: derive mastery from gap features
-            gap_features = self._load_gap_features()
-            if not gap_features.empty and student_id in gap_features["id_student"].values:
-                student_data = gap_features[gap_features["id_student"] == student_id]
-                mastery_dict = {}
-                for _, row in student_data.iterrows():
-                    mastery_dict[row["concept"]] = row["avg_score"]
+            predicted = state["mastery"]
+            attempted = {concept_map.get(int(x[0]), f"concept_{int(x[0])}") for x in seq}
+            # Only report concepts in the modules this student actually takes
+            modules = {c.split("_")[0] for c in attempted}
+            for i, name in concept_map.items():
+                if name.split("_")[0] in modules:
+                    mastery_values[name] = float(predicted[i])
+            source = "dkt"
+        elif not student_rows.empty:
+            # Not enough history for DKT (fewer than 3 assessments): use observed averages
+            for _, row in student_rows.iterrows():
+                mastery_values[row["concept"]] = float(row["avg_score"])
+                attempted.add(row["concept"])
+            source = "observed_scores"
 
-                # Build mastery array
-                mastery = np.array([mastery_dict.get(concept_map.get(i, f"concept_{i}"), 0.5)
-                                     for i in range(len(concept_map))])
-            else:
-                mastery = np.random.uniform(0.3, 0.8, max(len(concept_map), 5))
+        concept_names = list(mastery_values.keys())
+        mastery = list(mastery_values.values())
 
         # Build result
         mastery_by_concept = {}
@@ -157,8 +165,7 @@ class AgentTools:
         # Get simulated boosts
         boosts = memory.profiles.get_simulated_boosts(student_id) if memory else {}
 
-        for i, score in enumerate(mastery):
-            concept_name = concept_map.get(i, f"concept_{i}")
+        for concept_name, score in zip(concept_names, mastery):
             
             # Apply boost
             boost = boosts.get(concept_name, 0.0)
@@ -170,6 +177,7 @@ class AgentTools:
                 "level": level["label"],
                 "level_num": [k for k, v in MASTERY_LEVELS.items()
                               if v["label"] == level["label"]][0],
+                "attempted": concept_name in attempted,
             }
 
         avg_mastery = np.mean([v["score"] for v in mastery_by_concept.values()]) if mastery_by_concept else 0.0
@@ -185,6 +193,7 @@ class AgentTools:
             "weak_concepts": weak,
             "num_concepts": len(mastery_by_concept),
             "overall_level": self._get_mastery_level(avg_mastery)["label"],
+            "source": source,
         }
 
         logger.info(
@@ -207,8 +216,10 @@ class AgentTools:
         detector = self._load_gap_detector()
         gap_features = self._load_gap_features()
 
+        ranked = []
         if detector and not gap_features.empty and student_id in gap_features["id_student"].values:
-            gaps = detector.get_student_gaps(student_id, gap_features, top_k=top_k)
+            ranked = detector.rank_student_concepts(student_id, gap_features)
+            gaps = [g for g in ranked if g["is_weak"]][:top_k]
         else:
             # Fallback: derive from mastery scores
             mastery = self.knowledge_tracer(student_id)
@@ -226,10 +237,16 @@ class AgentTools:
                     })
             gaps = sorted(gaps, key=lambda x: x["confidence"], reverse=True)[:top_k]
 
+        # Focus topics: the flagged gaps, or the highest-risk concepts when none are
+        # flagged, so the recommender and planner always have something concrete.
+        focus = gaps if gaps else [dict(g, watch=True) for g in ranked[:2]]
+
         result = {
             "student_id": student_id,
             "timestamp": datetime.now().isoformat(),
             "weak_topics": gaps,
+            "focus_topics": focus,
+            "all_concepts": ranked,
             "total_gaps": len(gaps),
             "critical_count": sum(1 for g in gaps if g.get("severity") == "Critical"),
             "high_count": sum(1 for g in gaps if g.get("severity") == "High"),
@@ -257,10 +274,10 @@ class AgentTools:
         """
         logger.info(f"📚 Resource Recommender: Finding resources for student {student_id}")
 
-        # Get weak concepts if not provided
+        # Get focus concepts if not provided
         if not weak_concepts:
             gap_result = self.gap_detector(student_id)
-            weak_concepts = gap_result["weak_topics"]
+            weak_concepts = gap_result["focus_topics"]
 
         recommender = self._load_recommender()
         profiles = self._load_student_profiles()
@@ -285,6 +302,7 @@ class AgentTools:
             "student_id": student_id,
             "timestamp": datetime.now().isoformat(),
             "recommendations": resources[:top_k],
+            "mode": getattr(recommender, "last_mode", "heuristic"),
             "total_resources": len(resources),
             "concepts_covered": list(set(r.get("concept", "") for r in resources)),
             "resource_types": {
@@ -318,148 +336,102 @@ class AgentTools:
         # Get student context
         mastery = self.knowledge_tracer(student_id)
         gaps = self.gap_detector(student_id)
-        resources_result = self.resource_recommender(student_id, gaps["weak_topics"])
+        # Topics for the week: focus topics first, then the next highest-risk concepts (max 3)
+        topics = list(gaps["focus_topics"])
+        for c in gaps.get("all_concepts", []):
+            if len(topics) >= 3:
+                break
+            if c["concept"] not in {t["concept"] for t in topics}:
+                topics.append(c)
+        resources_result = self.resource_recommender(student_id, topics, top_k=12) if topics else \
+            {"recommendations": []}
         resources = resources_result["recommendations"]
 
-        # Rule-based plan structure
-        days = []
-        weak_topics = gaps["weak_topics"]
+        # Highest-risk topic gets the most days: e.g. [A, B, A, C, A, B]
+        patterns = {1: [0, 0, 0, 0, 0, 0], 2: [0, 1, 0, 1, 0, 1], 3: [0, 1, 0, 2, 0, 1]}
+        pattern = patterns.get(len(topics), [])
         daily_minutes = int(daily_hours * 60)
+        used: set = set()
+        days = []
 
         for day_num in range(1, 8):
-            day_plan = {
-                "day": day_num,
-                "day_label": f"Day {day_num}",
-                "focus_topic": "",
-                "activities": [],
-                "total_minutes": 0,
-                "review": False,
-            }
+            day_plan = {"day": day_num, "day_label": f"Day {day_num}", "focus_topic": "",
+                        "activities": [], "total_minutes": 0, "review": False}
 
             if day_num == 7:
-                # Day 7: Review & Self-Assessment
                 day_plan["focus_topic"] = "Weekly Review & Self-Assessment"
                 day_plan["review"] = True
                 review_minutes = max(daily_minutes, 90)
                 chunk = review_minutes // 4
                 day_plan["activities"] = [
-                    {"time": f"{chunk} min", "activity": "Review notes from the entire week",
-                     "type": "review", "resource": None},
-                    {"time": f"{chunk} min", "activity": "Practice problems on weakest topics",
-                     "type": "practice", "resource": None},
-                    {"time": f"{chunk} min", "activity": "Self-assessment quiz — test yourself without notes",
-                     "type": "assessment", "resource": None},
-                    {"time": f"{chunk} min", "activity": "Reflect on progress and plan next week's goals",
-                     "type": "reflection", "resource": None},
+                    {"time": f"{chunk} min", "activity": "Review notes from the entire week", "type": "review", "resource": None},
+                    {"time": f"{chunk} min", "activity": "Practice questions on the week's highest-risk topic", "type": "practice", "resource": None},
+                    {"time": f"{chunk} min", "activity": "Self-assessment quiz — test yourself without notes", "type": "assessment", "resource": None},
+                    {"time": f"{chunk} min", "activity": "Reflect on progress and plan next week's goals", "type": "reflection", "resource": None},
                 ]
                 day_plan["total_minutes"] = review_minutes
+                days.append(day_plan)
+                continue
+
+            if pattern:
+                raw_topic = topics[pattern[day_num - 1]]["concept"]
             else:
-                # Assign a weak topic to each day (cycle if more days than topics)
-                raw_topic = ""
-                if weak_topics:
-                    topic_idx = (day_num - 1) % len(weak_topics)
-                    topic = weak_topics[topic_idx]
-                    raw_topic = topic.get("concept", f"Topic {day_num}")
-                else:
-                    raw_topic = f"General Review"
+                raw_topic = "General Review"
+            day_plan["focus_topic"] = format_module_name(raw_topic)
+            day_plan["raw_topic"] = raw_topic
+            a_type = raw_topic.split("_")[1] if "_" in raw_topic else ""
+            visit = sum(1 for d in days if d.get("raw_topic") == raw_topic)   # nth day on this topic
 
-                # Store human-readable name for display
-                day_plan["focus_topic"] = format_module_name(raw_topic)
-                day_plan["raw_topic"] = raw_topic
+            topic_resources = [r for r in resources if r.get("concept") == raw_topic]
+            time_remaining = daily_minutes
 
-                # Find resources matching this topic
-                topic_resources = [r for r in resources if r.get("concept") == raw_topic]
+            def take(kind):
+                for r in topic_resources:
+                    if r.get("type") == kind and (r["id"], raw_topic) not in used:
+                        used.add((r["id"], raw_topic))
+                        return r
+                return None
 
-                # ── Build activities ──
-                time_remaining = daily_minutes
+            # 1) Learn: a video or reading resource not used yet this week
+            r = take("video") or take("pdf")
+            if r and time_remaining >= 25:
+                duration = min(int(r.get("duration_min", 30)), 45, time_remaining)
+                verb = "Watch" if r["type"] == "video" else "Read"
+                day_plan["activities"].append({"time": f"{duration} min", "activity": f"{verb}: {r['title']}",
+                                               "type": "video" if r["type"] == "video" else "reading", "resource": r})
+                time_remaining -= duration
+            elif time_remaining >= 25:
+                duration = min(30, time_remaining)
+                day_plan["activities"].append({"time": f"{duration} min",
+                                               "activity": _LEARN_ACTIVITY.get(a_type, _LEARN_ACTIVITY[""])[visit % 3],
+                                               "type": "reading", "resource": None})
+                time_remaining -= duration
 
-                # Video session
-                videos = [r for r in topic_resources if r.get("type") == "video"]
-                if videos and time_remaining >= 30:
-                    v = videos[0]
-                    duration = min(v.get("duration_min", 30), 45)
-                    day_plan["activities"].append({
-                        "time": f"{duration} min",
-                        "activity": f"Watch: {v.get('title', 'Video lesson')}",
-                        "type": "video",
-                        "resource": v,
-                    })
-                    time_remaining -= duration
-                elif time_remaining >= 30:
-                    # No video resource — generate a practical default
-                    duration = min(30, time_remaining)
-                    day_plan["activities"].append({
-                        "time": f"{duration} min",
-                        "activity": f"Watch a lecture or tutorial on {day_plan['focus_topic']}",
-                        "type": "video",
-                        "resource": None,
-                    })
-                    time_remaining -= duration
+            # 2) Practise: a practice resource, else an assessment-specific exercise
+            r = take("practice")
+            if r and time_remaining >= 20:
+                duration = min(int(r.get("duration_min", 30)), 40, time_remaining)
+                day_plan["activities"].append({"time": f"{duration} min", "activity": f"Practice: {r['title']}",
+                                               "type": "practice", "resource": r})
+                time_remaining -= duration
+            elif time_remaining >= 20:
+                duration = min(40, time_remaining)
+                day_plan["activities"].append({"time": f"{duration} min",
+                                               "activity": _PRACTICE_ACTIVITY.get(a_type, _PRACTICE_ACTIVITY[""])[visit % 3],
+                                               "type": "practice", "resource": None})
+                time_remaining -= duration
 
-                # Reading / PDF session
-                pdfs = [r for r in topic_resources if r.get("type") == "pdf"]
-                if pdfs and time_remaining >= 25:
-                    p = pdfs[0]
-                    duration = min(p.get("duration_min", 30), 40)
-                    day_plan["activities"].append({
-                        "time": f"{duration} min",
-                        "activity": f"Read: {p.get('title', 'Study material')}",
-                        "type": "reading",
-                        "resource": p,
-                    })
-                    time_remaining -= duration
-                elif time_remaining >= 25:
-                    duration = min(30, time_remaining)
-                    day_plan["activities"].append({
-                        "time": f"{duration} min",
-                        "activity": f"Read textbook chapter on {day_plan['focus_topic']}",
-                        "type": "reading",
-                        "resource": None,
-                    })
-                    time_remaining -= duration
+            # 3) Consolidate
+            if time_remaining >= 10:
+                day_plan["activities"].append({"time": f"{time_remaining} min",
+                                               "activity": _REVIEW_ACTIVITY[visit % 3],
+                                               "type": "review", "resource": None})
+                time_remaining = 0
 
-                # Practice session
-                practice = [r for r in topic_resources if r.get("type") == "practice"]
-                if practice and time_remaining >= 20:
-                    pr = practice[0]
-                    duration = min(pr.get("duration_min", 45), time_remaining)
-                    day_plan["activities"].append({
-                        "time": f"{duration} min",
-                        "activity": f"Practice: {pr.get('title', 'Exercises')}",
-                        "type": "practice",
-                        "resource": pr,
-                    })
-                    time_remaining -= duration
-                elif time_remaining >= 20:
-                    duration = min(30, time_remaining)
-                    day_plan["activities"].append({
-                        "time": f"{duration} min",
-                        "activity": f"Solve practice problems on {day_plan['focus_topic']}",
-                        "type": "practice",
-                        "resource": None,
-                    })
-                    time_remaining -= duration
-
-                # Fill remaining time with review
-                if time_remaining >= 10:
-                    day_plan["activities"].append({
-                        "time": f"{time_remaining} min",
-                        "activity": "Review notes and summarize key concepts",
-                        "type": "review",
-                        "resource": None,
-                    })
-                    time_remaining = 0
-
-                day_plan["total_minutes"] = daily_minutes - time_remaining
-
-                # Add break reminder for long sessions
-                if day_plan["total_minutes"] > 45 and len(day_plan["activities"]) >= 2:
-                    day_plan["activities"].insert(
-                        len(day_plan["activities"]) // 2,
-                        {"time": "10 min", "activity": "🧘 Break — Stretch and hydrate",
-                         "type": "break", "resource": None}
-                    )
-
+            day_plan["total_minutes"] = daily_minutes - time_remaining
+            if day_plan["total_minutes"] > 45 and len(day_plan["activities"]) >= 2:
+                day_plan["activities"].insert(1, {"time": "10 min", "activity": "🧘 Break — stretch and hydrate",
+                                                  "type": "break", "resource": None})
             days.append(day_plan)
 
         result = {
@@ -616,3 +588,36 @@ class AgentTools:
         lines.append(f"**Focus Areas:** {weak}")
 
         return "\n".join(lines)
+
+# Assessment-specific activities used when the catalog has no unused resource left
+_LEARN_ACTIVITY = {
+    "TMA": ["Re-read the assignment brief and highlight the task words",
+            "Study a model answer / tutor feedback from a previous assignment",
+            "Read the module notes for the next assignment's topic"],
+    "CMA": ["Review the module notes behind recent quiz questions",
+            "Re-learn the definitions you got wrong in the last quiz",
+            "Work through the worked examples for this unit"],
+    "Exam": ["Make a one-page summary sheet of the key topics",
+             "Re-watch / re-read the hardest unit of the module",
+             "Map out likely exam questions from past papers"],
+    "": ["Read the module notes for this topic",
+         "Summarise the key ideas in your own words",
+         "Review your recent feedback"],
+}
+_PRACTICE_ACTIVITY = {
+    "TMA": ["Draft an outline for the next assignment question",
+            "Write one timed practice paragraph and self-mark it against the rubric",
+            "Revise a previous answer using the tutor's feedback"],
+    "CMA": ["Do a timed set of practice questions",
+            "Redo the questions you got wrong — without notes",
+            "Make flashcards for the facts you keep forgetting"],
+    "Exam": ["Answer one past-paper question under timed conditions",
+             "Active-recall session: write everything you remember, then check",
+             "Explain the hardest concept out loud as if teaching it"],
+    "": ["Solve practice problems on this topic",
+         "Test yourself with flashcards",
+         "Explain the topic to someone else"],
+}
+_REVIEW_ACTIVITY = ["Summarise today's key points in 5 bullet notes",
+                    "Spaced-repetition review of earlier notes",
+                    "Write 3 questions you still have and look up the answers"]

@@ -45,7 +45,7 @@ Assignments, notebooks and projects completed during the **3-Week Summer Interns
 
 | Project | Description | Links |
 |---|---|---|
-| **LearnFlow AI — Personalized Learning Agent** | Deep Knowledge Tracing (LSTM) and XGBoost gap detection on OULAD + UCI data, an LLM-based recommender with an offline fallback catalog, a 5-tool agent with 4-layer memory and an 11-page Streamlit dashboard with a FastAPI backend. | [Live demo](https://supercomputinginternship.streamlit.app/) · [Project folder](Final%20project/) · [README](Final%20project/README.md) |
+| **LearnFlow AI — Personalized Learning Agent** | Trained on the real OULAD (32,593 students): Deep Knowledge Tracing LSTM (test AUC 0.83), a leakage-free XGBoost next-assessment risk model (AUC 0.87), LLM-ranked resources from a curated catalog, a grounded AI chat agent with 4-layer memory, and an 11-page Streamlit dashboard. | [Live demo](https://supercomputinginternship.streamlit.app/) · [Project folder](Final%20project/) · [README](Final%20project/README.md) |
 
 ---
 

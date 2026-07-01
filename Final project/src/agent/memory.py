@@ -324,6 +324,16 @@ class LearningHistory:
 
         self._save()
 
+    def log_event_once(self, student_id: int, event_type: str, data: dict, key: str):
+        """Log an event unless the same (type, key) was already logged today."""
+        today = datetime.now().date().isoformat()
+        for e in reversed(self._events.get(student_id, [])):
+            if not e["timestamp"].startswith(today):
+                break
+            if e["event_type"] == event_type and e["data"].get("concept") == key:
+                return
+        self.log_event(student_id, event_type, data)
+
     def get_events(
         self,
         student_id: int,

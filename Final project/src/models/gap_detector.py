@@ -13,7 +13,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import (
     f1_score, precision_score, recall_score,
     classification_report, roc_auc_score
@@ -31,15 +31,15 @@ class GapDetector:
     """
     XGBoost-based classifier that identifies weak topics for each student.
 
-    Features:
-        - Score statistics (avg, min, max, std, trend)
-        - Lag features (last 3 scores)
-        - VLE engagement metrics
-        - Student demographics
-        - DKT mastery scores (optional, for enhanced predictions)
+    Features (all computed from information available BEFORE the predicted assessment):
+        - Score history for the concept (avg, min, max, std, trend, last 3 scores)
+        - Submission behaviour (late ratio, timing)
+        - VLE engagement in the module up to the last submission
+        - Module / assessment type and student demographics
 
     Target:
-        - is_weak: 1 if concept mastery < threshold, 0 otherwise
+        - next_is_weak: 1 if the student's NEXT assessment of the concept scores
+          below the mastery threshold, 0 otherwise
     """
 
     def __init__(self, config: Optional[dict] = None):
@@ -47,11 +47,12 @@ class GapDetector:
         self.model: Optional[xgb.XGBClassifier] = None
         self.feature_columns: list[str] = []
         self.feature_importance: Optional[pd.DataFrame] = None
+        self.threshold: float = 0.5   # decision threshold tuned on out-of-fold predictions
 
     def train(
         self,
         gap_features: pd.DataFrame,
-        target_col: str = "is_weak",
+        target_col: str = "next_is_weak",
         cv_folds: int = 5,
     ) -> dict:
         """
@@ -70,32 +71,45 @@ class GapDetector:
         logger.info("━" * 60)
 
         # Separate features and target
-        exclude_cols = [target_col, "id_student", "concept"]
+        exclude_cols = [target_col, "id_student", "concept", "is_weak"]
         self.feature_columns = [
             c for c in gap_features.columns if c not in exclude_cols
         ]
         X = gap_features[self.feature_columns].copy()
         y = gap_features[target_col].copy()
+        groups = gap_features["id_student"].values
 
-        # Handle class imbalance
+        # Class imbalance is handled with a tuned decision threshold (not class weights),
+        # so predicted probabilities stay calibrated and can be shown to students as risk.
         pos_ratio = y.sum() / len(y)
-        scale_pos = (1 - pos_ratio) / max(pos_ratio, 0.01)
         logger.info(f"  Class distribution: weak={y.sum():,} ({pos_ratio:.1%}), strong={(1-y).sum():,}")
-        logger.info(f"  Scale pos weight: {scale_pos:.2f}")
 
         # Configure model
         model_params = {k: v for k, v in self.config.items()
                         if k not in ["early_stopping_rounds", "random_state", "eval_metric"]}
-        model_params["scale_pos_weight"] = scale_pos
+        model_params["scale_pos_weight"] = 1.0
         model_params["random_state"] = self.config.get("random_state", 42)
         model_params["eval_metric"] = self.config.get("eval_metric", "logloss")
         # Note: use_label_encoder was removed in XGBoost 2.0+
 
-        # Cross-validation
+        # Cross-validation grouped by student (no student appears in both train and validation)
         cv_results = {"f1": [], "precision": [], "recall": [], "auc": []}
-        skf = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
+        skf = StratifiedGroupKFold(n_splits=cv_folds, shuffle=True, random_state=42)
+        oof = np.zeros(len(y))
+        folds = list(skf.split(X, y, groups))
 
-        for fold, (train_idx, val_idx) in enumerate(skf.split(X, y), 1):
+        # Pass 1: out-of-fold probabilities → pick the F1-optimal threshold
+        for train_idx, val_idx in folds:
+            m = xgb.XGBClassifier(**model_params)
+            m.fit(X.iloc[train_idx], y.iloc[train_idx], verbose=False)
+            oof[val_idx] = m.predict_proba(X.iloc[val_idx])[:, 1]
+        candidates = np.arange(0.05, 0.71, 0.01)
+        f1s = [f1_score(y, (oof >= t).astype(int)) for t in candidates]
+        self.threshold = float(round(candidates[int(np.argmax(f1s))], 2))
+        logger.info(f"  Decision threshold (max out-of-fold F1): {self.threshold:.2f}")
+
+        # Pass 2: per-fold metrics at that threshold
+        for fold, (train_idx, val_idx) in enumerate(folds, 1):
             X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
             y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
 
@@ -106,8 +120,8 @@ class GapDetector:
                 verbose=False,
             )
 
-            y_pred = fold_model.predict(X_val)
             y_prob = fold_model.predict_proba(X_val)[:, 1]
+            y_pred = (y_prob >= self.threshold).astype(int)
 
             cv_results["f1"].append(f1_score(y_val, y_pred))
             cv_results["precision"].append(precision_score(y_val, y_pred))
@@ -146,6 +160,7 @@ class GapDetector:
 
         return {
             "cv_metrics": metrics,
+            "threshold": self.threshold,
             "feature_importance": self.feature_importance,
         }
 
@@ -165,17 +180,18 @@ class GapDetector:
 
         X = student_features[self.feature_columns].copy()
 
-        predictions = self.model.predict(X)
         probabilities = self.model.predict_proba(X)[:, 1]
+        t = self.threshold
 
         results = student_features[["id_student", "concept"]].copy()
-        results["is_weak"] = predictions
+        results["is_weak"] = (probabilities >= t).astype(int)
         results["confidence"] = probabilities
+        # Severity relative to the tuned threshold: flagged concepts are High / Critical
         results["severity"] = pd.cut(
             probabilities,
-            bins=[0, 0.3, 0.5, 0.7, 1.0],
+            bins=[-0.001, t / 2, t, max(0.5, t + 1e-6), 1.0],
             labels=["Low", "Moderate", "High", "Critical"],
-        )
+        ).astype(str)
 
         # Rank by confidence (highest probability of being weak = highest priority)
         results["priority_rank"] = results.groupby("id_student")["confidence"].rank(
@@ -203,23 +219,30 @@ class GapDetector:
         Get top-K weak topics for a specific student.
         Returns list of dicts with concept info and severity.
         """
-        student_data = gap_features[gap_features["id_student"] == student_id]
+        ranked = self.rank_student_concepts(student_id, gap_features)
+        return [g for g in ranked if g["is_weak"]][:top_k]
 
+    def rank_student_concepts(self, student_id: int, gap_features: pd.DataFrame) -> list[dict]:
+        """
+        Rank ALL of a student's concepts by predicted risk of scoring below the
+        threshold on the next assessment (highest risk first).
+        """
+        student_data = gap_features[gap_features["id_student"] == student_id]
         if student_data.empty:
             logger.warning(f"No data found for student {student_id}")
             return []
 
         gaps = self.predict_gaps(student_data)
-        weak_gaps = gaps[gaps["is_weak"] == 1].head(top_k)
-
         return [
             {
                 "concept": row["concept"],
-                "confidence": round(row["confidence"], 3),
-                "severity": row["severity"],
-                "priority": row["priority_rank"],
+                "confidence": round(float(row["confidence"]), 3),
+                "severity": str(row["severity"]),
+                "priority": int(row["priority_rank"]),
+                "is_weak": bool(row["is_weak"]),
+                "avg_score": round(float(student_data.loc[idx, "avg_score"]), 3) if "avg_score" in student_data else None,
             }
-            for _, row in weak_gaps.iterrows()
+            for idx, row in gaps.iterrows()
         ]
 
     def save(self, path: Optional[Path] = None):
@@ -233,6 +256,7 @@ class GapDetector:
                 "feature_columns": self.feature_columns,
                 "feature_importance": self.feature_importance,
                 "config": self.config,
+                "threshold": self.threshold,
             }, f)
         logger.info(f"  ✓ Gap detector saved to {path}")
 
@@ -248,6 +272,7 @@ class GapDetector:
         detector.model = data["model"]
         detector.feature_columns = data["feature_columns"]
         detector.feature_importance = data["feature_importance"]
+        detector.threshold = data.get("threshold", 0.5)
 
         logger.info(f"  ✓ Gap detector loaded from {path}")
         return detector

@@ -13,23 +13,25 @@ from config import RAW_DIR
 
 def render():
     st.markdown('<div class="section-header">📊 Dataset Explorer</div>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #94A3B8;">Browse and inspect the OULAD and UCI educational datasets.</p>',
+    st.markdown('<p style="color: #94A3B8;">Browse the OULAD (2,000-student sample of the real dataset) and UCI Student Performance tables.</p>',
                 unsafe_allow_html=True)
 
     tab1, tab2 = st.tabs(["🎓 OULAD Dataset", "📚 UCI Student Performance"])
 
     with tab1:
         oulad_dir = RAW_DIR / "oulad"
-        csv_files = sorted(oulad_dir.glob("*.csv")) if oulad_dir.exists() else []
+        csv_files = sorted(list(oulad_dir.glob("*.csv")) + list(oulad_dir.glob("*.csv.gz"))) \
+            if oulad_dir.exists() else []
 
         if csv_files:
+            names = {f.name.split(".")[0]: f for f in csv_files}
             selected_table = st.selectbox(
                 "Select Table",
-                [f.stem for f in csv_files],
+                sorted(names),
                 key="oulad_table_select",
             )
 
-            df = pd.read_csv(oulad_dir / f"{selected_table}.csv")
+            df = _read_table(names[selected_table])
 
             # Table info
             col1, col2, col3, col4 = st.columns(4)
@@ -99,3 +101,9 @@ def render():
                 st.dataframe(df.describe().round(2), use_container_width=True)
         else:
             st.info("UCI dataset not found. Run the pipeline to download datasets.")
+
+
+@st.cache_data(show_spinner=False)
+def _read_table(path):
+    return pd.read_csv(path)
+

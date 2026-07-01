@@ -31,10 +31,18 @@ class OULADLoader:
             return self._tables[table_name]
 
         csv_path = self.data_dir / f"{table_name}.csv"
+        if not csv_path.exists() and (self.data_dir / f"{table_name}.csv.gz").exists():
+            csv_path = self.data_dir / f"{table_name}.csv.gz"  # compressed copy (e.g. studentVle)
         if not csv_path.exists():
             raise FileNotFoundError(f"OULAD table not found: {csv_path}")
 
-        df = pd.read_csv(csv_path)
+        # Compact dtypes keep the 10M-row studentVle table within a few hundred MB
+        dtypes = {
+            "studentVle": {"code_module": "category", "code_presentation": "category",
+                           "id_student": "int32", "id_site": "int32", "date": "int16", "sum_click": "int32"},
+        }.get(table_name)
+        # OULAD marks missing values (score, deadlines, imd_band) with "?"
+        df = pd.read_csv(csv_path, dtype=dtypes, na_values=["?"])
         self._tables[table_name] = df
         logger.info(f"  Loaded {table_name}: {df.shape[0]:,} rows × {df.shape[1]} cols")
         return df

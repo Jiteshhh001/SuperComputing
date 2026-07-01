@@ -28,8 +28,10 @@ def render():
 
     @st.cache_data
     def load_oulad_table(name):
-        path = oulad_dir / f"{name}.csv"
-        return pd.read_csv(path) if path.exists() else pd.DataFrame()
+        for path in (oulad_dir / f"{name}.csv", oulad_dir / f"{name}.csv.gz"):
+            if path.exists():
+                return pd.read_csv(path)
+        return pd.DataFrame()
 
     student_info = load_oulad_table("studentInfo")
     student_assessment = load_oulad_table("studentAssessment")

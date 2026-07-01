@@ -15,7 +15,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from config import PROCESSED_DIR, MASTERY_THRESHOLD, DKT_CONFIG
+from config import PROCESSED_DIR, MASTERY_THRESHOLD, GAP_SCORE_THRESHOLD, DKT_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -73,13 +73,16 @@ class FeatureEngineer:
             aggfunc="mean"
         )
 
-        # Add VLE engagement as additional concepts
-        svle = student_vle.merge(
-            vle[["id_site", "activity_type"]],
+        # Add VLE engagement as additional concepts (aggregate first: studentVle has ~10M rows)
+        svle = (student_vle.groupby(["id_student", "code_module", "id_site"], observed=True)["sum_click"]
+                .sum().reset_index())
+        svle = svle.merge(
+            vle[["id_site", "activity_type"]].drop_duplicates("id_site"),
             on="id_site",
             how="left"
         )
-        svle["concept"] = svle["code_module"] + "_vle_" + svle["activity_type"].fillna("unknown")
+        svle["concept"] = (svle["code_module"].astype(str) + "_vle_"
+                           + svle["activity_type"].fillna("unknown").astype(str))
 
         # Normalize VLE clicks using log transform
         vle_matrix = svle.pivot_table(
@@ -171,8 +174,9 @@ class FeatureEngineer:
                 sequences.append(seq)
                 student_ids.append(student_id)
 
-        # Update concept map
-        self._concept_map = {i: c for i, c in enumerate(all_concepts)}
+        # Concept map must follow the encoder's (sorted) class order so that
+        # concept_id i in the sequences maps to the right concept name.
+        self._concept_map = {i: c for i, c in enumerate(self.concept_encoder.classes_.tolist())}
 
         logger.info(
             f"  ✓ {len(sequences):,} sequences, {num_concepts} concepts, "
@@ -196,86 +200,109 @@ class FeatureEngineer:
         assessments: pd.DataFrame,
         student_info: pd.DataFrame,
         student_vle: pd.DataFrame,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
-        Build feature matrix for XGBoost gap detector.
+        Build the XGBoost gap-detector datasets without target leakage.
 
-        Features per student per concept:
-            - avg_score, min_score, max_score, score_trend
-            - lag_1, lag_2, lag_3 (last 3 scores)
-            - submission_timeliness
-            - vle_engagement (clicks for related resources)
-            - student demographics
-            - is_weak (target: 1 if concept mastery < threshold)
+        The detector predicts whether a student will score below the mastery
+        threshold on their NEXT assessment of a concept, using only what was
+        known before that assessment:
+            - score history for the concept (avg/min/max/std, trend, last 3 scores)
+            - submission behaviour (late-submission ratio, timing)
+            - VLE engagement in the module up to the last submission
+            - student demographics and module / assessment type
+
+        Returns:
+            (train_df, current_df)
+            train_df   — one row per (student, concept, history prefix) with the
+                         target ``next_is_weak`` (score of the following attempt < 50%)
+            current_df — one row per (student, concept) built from ALL attempts,
+                         used at inference time to predict the next assessment
         """
-        logger.info("Building gap detection features...")
+        logger.info("Building gap detection features (history → next assessment)...")
 
-        # Merge assessment data
         sa = student_assessment.merge(assessments, on="id_assessment", how="left")
+        sa = sa.dropna(subset=["score", "code_module", "assessment_type"])
         sa["concept"] = sa["code_module"] + "_" + sa["assessment_type"]
-        sa["score_norm"] = sa["score"] / 100.0
-        sa = sa.sort_values(["id_student", "concept", "date_submitted"])
+        sa["score_norm"] = (sa["score"] / 100.0).clip(0, 1)
+        deadline = sa["date"] if "date" in sa.columns else pd.Series(np.nan, index=sa.index)
+        sa["is_late"] = ((sa["date_submitted"] - deadline) > 0).astype(float).where(deadline.notna(), 0.0)
+        sa = sa.sort_values(["id_student", "concept", "date_submitted", "id_assessment"])
 
-        features_list = []
+        # Cumulative VLE clicks per (student, module) by day → clicks before a cutoff day
+        daily = (student_vle.groupby(["id_student", "code_module", "date"], observed=True)["sum_click"]
+                 .sum().reset_index().sort_values(["id_student", "code_module", "date"]))
+        vle_index = {}
+        daily["code_module"] = daily["code_module"].astype(str)
+        for (sid, mod), g in daily.groupby(["id_student", "code_module"], sort=False):
+            d = g["date"].to_numpy()
+            vle_index[(sid, mod)] = (d, np.cumsum(g["sum_click"].to_numpy()), np.arange(1, len(d) + 1))
 
-        for (student_id, concept), group in sa.groupby(["id_student", "concept"]):
-            scores = group["score_norm"].values
-            dates = group["date_submitted"].values
+        def vle_before(sid, mod, cutoff):
+            entry = vle_index.get((sid, mod))
+            if entry is None:
+                return 0.0, 0
+            dates, cum_clicks, cum_days = entry
+            pos = np.searchsorted(dates, cutoff, side="right")
+            return (float(cum_clicks[pos - 1]), int(cum_days[pos - 1])) if pos > 0 else (0.0, 0)
 
-            feat = {
-                "id_student": student_id,
+        module_codes = {m: i for i, m in enumerate(sorted(sa["code_module"].unique()))}
+        type_codes = {"CMA": 0, "TMA": 1, "Exam": 2}
+
+        def history_features(sid, concept, module, a_type, scores, late, days):
+            n = len(scores)
+            clicks, active_days = vle_before(sid, module, days[-1])
+            return {
+                "id_student": sid,
                 "concept": concept,
-                # Score statistics
-                "avg_score": np.mean(scores),
-                "min_score": np.min(scores),
-                "max_score": np.max(scores),
-                "score_std": np.std(scores) if len(scores) > 1 else 0,
-                "num_attempts": len(scores),
-                # Score trend (slope of linear regression)
+                "avg_score": float(np.mean(scores)),
+                "min_score": float(np.min(scores)),
+                "max_score": float(np.max(scores)),
+                "score_std": float(np.std(scores)) if n > 1 else 0.0,
+                "num_attempts": n,
                 "score_trend": self._compute_trend(scores),
-                # Lag features (last 3 scores)
-                "lag_1": scores[-1] if len(scores) >= 1 else 0,
-                "lag_2": scores[-2] if len(scores) >= 2 else scores[-1] if len(scores) >= 1 else 0,
-                "lag_3": scores[-3] if len(scores) >= 3 else scores[-2] if len(scores) >= 2 else 0,
-                # Submission timeliness
-                "avg_submission_day": np.mean(dates) if len(dates) > 0 else 0,
-                # Target: is_weak
-                "is_weak": int(np.mean(scores) < MASTERY_THRESHOLD),
+                "lag_1": float(scores[-1]),
+                "lag_2": float(scores[-2]) if n >= 2 else float(scores[-1]),
+                "lag_3": float(scores[-3]) if n >= 3 else float(scores[0]),
+                "late_ratio": float(np.mean(late)),
+                "last_submission_day": float(days[-1]),
+                "vle_clicks_log": float(np.log1p(clicks)),
+                "vle_active_days": active_days,
+                "module_code": module_codes.get(module, -1),
+                "assessment_type_code": type_codes.get(a_type, 3),
             }
-            features_list.append(feat)
 
-        features = pd.DataFrame(features_list)
+        train_rows, current_rows = [], []
+        for (sid, concept), g in sa.groupby(["id_student", "concept"], sort=False):
+            scores = g["score_norm"].to_numpy()
+            late = g["is_late"].to_numpy()
+            days = g["date_submitted"].to_numpy()
+            module, a_type = g["code_module"].iat[0], g["assessment_type"].iat[0]
+            current_rows.append(history_features(sid, concept, module, a_type, scores, late, days))
+            for k in range(1, len(scores)):
+                row = history_features(sid, concept, module, a_type, scores[:k], late[:k], days[:k])
+                row["next_is_weak"] = int(scores[k] < GAP_SCORE_THRESHOLD)
+                train_rows.append(row)
 
-        # Merge VLE engagement per student
-        vle_agg = student_vle.groupby("id_student").agg(
-            total_clicks=("sum_click", "sum"),
-            total_days=("date", "nunique"),
-            avg_clicks=("sum_click", "mean"),
-        ).reset_index()
-        features = features.merge(vle_agg, on="id_student", how="left")
+        train_df = pd.DataFrame(train_rows)
+        current_df = pd.DataFrame(current_rows)
 
-        # Merge student demographics
-        demo_cols = ["id_student", "gender", "region", "highest_education",
-                     "age_band", "num_of_prev_attempts", "studied_credits"]
-        demo = student_info[[c for c in demo_cols if c in student_info.columns]].copy()
-
-        # Encode categorical features
-        cat_cols = ["gender", "region", "highest_education", "age_band"]
-        for col in cat_cols:
+        # Student demographics (same encoding for both frames)
+        demo_cols = ["id_student", "gender", "region", "highest_education", "imd_band",
+                     "age_band", "num_of_prev_attempts", "studied_credits", "disability"]
+        demo = (student_info[[c for c in demo_cols if c in student_info.columns]]
+                .drop_duplicates("id_student").copy())
+        for col in ["gender", "region", "highest_education", "imd_band", "age_band", "disability"]:
             if col in demo.columns:
                 demo[col] = LabelEncoder().fit_transform(demo[col].astype(str))
 
-        features = features.merge(demo, on="id_student", how="left")
+        train_df = train_df.merge(demo, on="id_student", how="left").fillna(0)
+        current_df = current_df.merge(demo, on="id_student", how="left").fillna(0)
 
-        # Fill remaining NAs
-        features = features.fillna(0)
-
-        # Encode concept
-        features["concept_encoded"] = LabelEncoder().fit_transform(features["concept"])
-
-        logger.info(f"  ✓ Gap features: {features.shape[0]:,} rows × {features.shape[1]} cols")
-        logger.info(f"  ✓ Weak topics ratio: {features['is_weak'].mean():.2%}")
-        return features
+        logger.info(f"  ✓ Gap training rows: {len(train_df):,} "
+                    f"(next-assessment weak rate {train_df['next_is_weak'].mean():.2%})")
+        logger.info(f"  ✓ Gap inference rows: {len(current_df):,} student-concept pairs")
+        return train_df, current_df
 
     # ═══════════════════════════════════════════════════════════════════════
     #  4. Student Profile Features

@@ -33,13 +33,19 @@ def render():
         st.button("🔄 Get Recommendations", key="run_recs", use_container_width=True)
 
     try:
-        recs = agent.get_recommendations(student_id)
+        with st.spinner("Ranking resources for this student…"):
+            recs = agent.get_recommendations(student_id, top_k=top_k)
     except Exception as e:
         st.error(f"Error: {e}")
         return
 
     recommendations = recs.get("recommendations", [])
     type_counts = recs.get("resource_types", {})
+    if recs.get("mode") == "llm":
+        st.caption("🤖 Ranked and explained by the AI model from the curated catalog.")
+    else:
+        st.caption("📊 Ranked by severity-aware heuristic (AI model not configured or unavailable). "
+                   "All resources come from the curated, link-checked catalog.")
 
     # Summary
     col1, col2, col3, col4 = st.columns(4)
@@ -89,6 +95,7 @@ def render():
             difficulty = r.get("difficulty", "unknown")
             duration = r.get("duration_min", "?")
             source = r.get("source", "llm")
+            reason = r.get("reason", "")
 
             diff_color = {"beginner": "#22C55E", "intermediate": "#F59E0B", "advanced": "#EF4444"}.get(difficulty, "#94A3B8")
 
@@ -109,6 +116,9 @@ def render():
                         </div>
                         <p style="color: #94A3B8; font-size: 0.85rem; margin: 8px 0 0 0;">
                             {r.get('description', '')}
+                        </p>
+                        <p style="color: #A78BFA; font-size: 0.85rem; margin: 6px 0 0 0;">
+                            {('💡 ' + reason) if reason else ''}
                         </p>
                         <div style="margin-top: 8px;">
                             <span style="color: #64748B; font-size: 0.75rem;">

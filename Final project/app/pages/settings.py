@@ -14,8 +14,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import (
     PROJECT_ROOT as CFG_ROOT,
-    OPENROUTER_API_KEY, LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS,
-    DKT_CONFIG, XGBOOST_CONFIG, RECOMMENDER_CONFIG,
+    LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS,
+    DKT_CONFIG, XGBOOST_CONFIG,
     MASTERY_THRESHOLD, AT_RISK_THRESHOLD,
     MASTERY_LEVELS, MODELS_DIR, PROCESSED_DIR, RAW_DIR,
 )
@@ -43,111 +43,50 @@ def render():
     # ═════════════════════════════════════════════════════════════════════
     with tabs[0]:
         st.markdown("### 🔑 OpenRouter API Configuration")
+        agent = st.session_state.get("agent")
+        llm = agent.llm if agent else None
+        configured = bool(llm and llm.available)
 
-        # Current status
-        api_status = "✅ Connected" if OPENROUTER_API_KEY else "❌ Not configured"
-        api_color = "#22C55E" if OPENROUTER_API_KEY else "#EF4444"
-        masked_key = ""
-        if OPENROUTER_API_KEY:
-            masked_key = OPENROUTER_API_KEY[:8] + "•" * 24 + OPENROUTER_API_KEY[-4:]
+        if configured:
+            st.success("✅ AI model enabled — chat answers and recommendation ranking use OpenRouter.")
+        else:
+            st.warning("⚠️ No OpenRouter key configured — the app runs in offline mode "
+                       "(data-driven chat answers and heuristic resource ranking).")
 
-        st.markdown(f"""
-        <div class="glass-container">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <span style="color: #F8FAFC; font-weight: 700;">API Status</span>
-                    <span style="color: {api_color}; margin-left: 12px; font-weight: 600;">{api_status}</span>
-                </div>
-                <span style="color: #64748B; font-size: 0.8rem; font-family: monospace;">
-                    {masked_key if masked_key else 'No key set'}
-                </span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # API key input
-        with st.expander("🔧 Update API Key", expanded=not bool(OPENROUTER_API_KEY)):
-            new_key = st.text_input(
-                "OpenRouter API Key",
-                type="password",
-                placeholder="sk-or-v1-...",
-                help="Get a free key at https://openrouter.ai/keys",
-                key="api_key_input",
-            )
-
+        with st.expander("🔧 Use your own OpenRouter key for this session", expanded=not configured):
+            st.caption("The key is kept only in this browser session's memory — it is never written "
+                       "to disk or shared with other visitors. Get a free key at https://openrouter.ai/keys")
+            new_key = st.text_input("OpenRouter API Key", type="password",
+                                    placeholder="sk-or-v1-...", key="api_key_input")
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 Save API Key", key="save_api_key", use_container_width=True):
-                    if new_key and new_key.strip():
-                        env_path = CFG_ROOT / ".env"
-                        _update_env_file(env_path, "OPENROUTER_API_KEY", new_key.strip())
-                        st.success("✅ API key saved to `.env`. Restart the app to apply.")
+                if st.button("✅ Use this key", key="save_api_key", use_container_width=True):
+                    if llm and new_key.strip():
+                        llm.set_api_key(new_key)
+                        st.success("Key applied for this session.")
                     else:
-                        st.warning("Please enter a valid API key.")
+                        st.warning("Enter a key first.")
             with col2:
-                if st.button("🔍 Test Connection", key="test_api", use_container_width=True):
-                    _test_api_connection(new_key or OPENROUTER_API_KEY)
+                if st.button("🔍 Test connection", key="test_api", use_container_width=True):
+                    _test_api_connection(llm)
 
-        # LLM Model selector
-        st.markdown("### 🤖 LLM Model")
+        st.markdown(
+            "To enable the AI model for everyone, set `OPENROUTER_API_KEY` in a local `.env` file, "
+            "or in **Streamlit Community Cloud → App settings → Secrets** as "
+            "`OPENROUTER_API_KEY = \"sk-or-v1-...\"`.")
 
-        free_models = [
-            "meta-llama/llama-4-scout:free",
-            "meta-llama/llama-4-maverick:free",
-            "google/gemini-2.5-flash-preview:free",
-            "deepseek/deepseek-chat-v3-0324:free",
-            "qwen/qwen3-235b-a22b:free",
-            "mistralai/mistral-small-3.1-24b-instruct:free",
-        ]
-
-        current_model = LLM_MODEL
-        if current_model not in free_models:
-            free_models.insert(0, current_model)
-
-        selected_model = st.selectbox(
-            "Select LLM Model",
-            free_models,
-            index=free_models.index(current_model) if current_model in free_models else 0,
-            key="model_select",
+        st.markdown("### 🤖 Model fallback chain")
+        st.caption("Free models are often rate-limited or retired, so each request tries these in order "
+                   "and remembers the last one that answered.")
+        models = llm.models if llm else [LLM_MODEL]
+        last = llm.last_model if llm else None
+        st.dataframe(
+            {"Order": list(range(1, len(models) + 1)), "Model": models,
+             "Status": ["✅ last used" if m == last else "" for m in models]},
+            use_container_width=True, hide_index=True,
         )
-
-        col1, col2 = st.columns(2)
-        with col1:
-            new_temp = st.slider(
-                "Temperature", 0.0, 1.0, LLM_TEMPERATURE, 0.05,
-                help="Lower = more focused, higher = more creative",
-                key="temperature_slider",
-            )
-        with col2:
-            new_max_tokens = st.number_input(
-                "Max Tokens", 256, 4096, LLM_MAX_TOKENS, 128,
-                help="Maximum response length",
-                key="max_tokens_input",
-            )
-
-        if st.button("💾 Save LLM Settings", key="save_llm", use_container_width=True):
-            env_path = CFG_ROOT / ".env"
-            _update_env_file(env_path, "LLM_MODEL", selected_model)
-            st.success(f"✅ Model set to `{selected_model}`. Restart the app to apply.")
-
-        # Model info card
-        st.markdown(f"""
-        <div class="resource-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <span style="color: #F8FAFC; font-weight: 700;">Active Model</span>
-                    <span class="resource-type-badge badge-video" style="margin-left: 8px;">OpenRouter</span>
-                </div>
-                <span style="color: #06B6D4; font-weight: 600; font-size: 0.85rem;">Free Tier</span>
-            </div>
-            <div style="margin-top: 8px; color: #94A3B8; font-size: 0.85rem;">
-                Model: <code style="color: #A78BFA;">{current_model}</code> |
-                Temp: {LLM_TEMPERATURE} | Max Tokens: {LLM_MAX_TOKENS}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.caption(f"Temperature {LLM_TEMPERATURE} · max tokens {LLM_MAX_TOKENS}"
+                   + (f" · last error: {llm.last_error}" if llm and llm.last_error else ""))
 
     # ═════════════════════════════════════════════════════════════════════
     #  Tab 2: Model Parameters
@@ -206,51 +145,18 @@ def render():
             st.dataframe(xgb_df_data, use_container_width=True, hide_index=True)
 
         with sub_tab3:
-            st.markdown("#### Recommender Configuration")
-            st.caption("The running recommender uses the OpenRouter LLM with a curated offline fallback catalog. The collaborative / content-based parameters below document the original hybrid design and are not used at runtime.")
-            rec_df_data = {
-                "Parameter": list(RECOMMENDER_CONFIG.keys()),
-                "Value": [str(v) for v in RECOMMENDER_CONFIG.values()],
-            }
-            st.dataframe(rec_df_data, use_container_width=True, hide_index=True)
-
-            # Hybrid weights visualization
-            cf_w = RECOMMENDER_CONFIG["cf_weight"]
-            cbf_w = RECOMMENDER_CONFIG["cbf_weight"]
-            llm_w = RECOMMENDER_CONFIG["llm_weight"]
-
-            st.markdown(f"""
-            <div class="glass-container">
-                <div style="color: #F8FAFC; font-weight: 700; margin-bottom: 12px;">Design Weights (reference)</div>
-                <div style="margin-bottom: 8px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="color: #6366F1; font-weight: 600;">Collaborative Filtering</span>
-                        <span style="color: #F8FAFC;">{cf_w:.0%}</span>
-                    </div>
-                    <div style="width: 100%; height: 8px; background: #334155; border-radius: 4px;">
-                        <div style="width: {cf_w*100}%; height: 100%; background: #6366F1; border-radius: 4px;"></div>
-                    </div>
-                </div>
-                <div style="margin-bottom: 8px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="color: #8B5CF6; font-weight: 600;">Content-Based Filtering</span>
-                        <span style="color: #F8FAFC;">{cbf_w:.0%}</span>
-                    </div>
-                    <div style="width: 100%; height: 8px; background: #334155; border-radius: 4px;">
-                        <div style="width: {cbf_w*100}%; height: 100%; background: #8B5CF6; border-radius: 4px;"></div>
-                    </div>
-                </div>
-                <div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="color: #06B6D4; font-weight: 600;">LLM Ranking</span>
-                        <span style="color: #F8FAFC;">{llm_w:.0%}</span>
-                    </div>
-                    <div style="width: 100%; height: 8px; background: #334155; border-radius: 4px;">
-                        <div style="width: {llm_w*100}%; height: 100%; background: #06B6D4; border-radius: 4px;"></div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown("#### Recommender")
+            from src.models.recommender import CATALOG
+            st.markdown(
+                f"- **Candidates:** {len(CATALOG)} curated, link-checked resources grouped by OULAD domain "
+                "(Social Sciences / STEM) and assessment type (TMA / CMA / Exam)\n"
+                "- **Ranking:** the LLM picks and explains the best matches for the student's at-risk concepts; "
+                "without an API key a severity-aware heuristic ranks them\n"
+                "- **Safety:** the LLM can only choose from the catalog, so every link is real")
+            st.dataframe(
+                {"Resource": [r["title"] for r in CATALOG], "Domain": [r["domain"] for r in CATALOG],
+                 "Type": [r["type"] for r in CATALOG], "Level": [r["difficulty"] for r in CATALOG]},
+                use_container_width=True, hide_index=True)
 
         # Thresholds
         st.markdown("### 📏 Decision Thresholds")
@@ -324,12 +230,12 @@ def render():
             with col1:
                 if st.button("🗑️ Clear Chat Memory", key="clear_conv_mem", use_container_width=True):
                     agent.memory.conversation.clear(student_id)
-                    st.session_state.chat_history = []
+                    st.session_state.setdefault("chat_histories", {}).pop(student_id, None)
                     st.success(f"✅ Conversation memory cleared for Student {student_id}")
             with col2:
                 if st.button("🗑️ Clear All Memory", key="clear_all_mem", use_container_width=True):
                     agent.memory.clear_student(student_id)
-                    st.session_state.chat_history = []
+                    st.session_state.setdefault("chat_histories", {}).pop(student_id, None)
                     st.session_state.analysis_cache.pop(student_id, None)
                     st.success(f"✅ All memory cleared for Student {student_id}")
             with col3:
@@ -517,54 +423,15 @@ def render():
 
 # ── Helper Functions ─────────────────────────────────────────────────────
 
-def _update_env_file(env_path: Path, key: str, value: str):
-    """Update or insert a key-value pair in the .env file."""
-    lines = []
-    found = False
-
-    if env_path.exists():
-        with open(env_path, "r") as f:
-            lines = f.readlines()
-
-    new_lines = []
-    for line in lines:
-        if line.strip().startswith(f"{key}="):
-            new_lines.append(f"{key}={value}\n")
-            found = True
-        else:
-            new_lines.append(line)
-
-    if not found:
-        new_lines.append(f"{key}={value}\n")
-
-    with open(env_path, "w") as f:
-        f.writelines(new_lines)
-
-
-def _test_api_connection(api_key: str):
-    """Test the OpenRouter API connection."""
-    if not api_key:
-        st.error("❌ No API key provided.")
+def _test_api_connection(llm):
+    """Send a tiny request through the model fallback chain."""
+    if not llm or not llm.available:
+        st.error("❌ No API key configured.")
         return
-
-    try:
-        import httpx
-        response = httpx.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": LLM_MODEL,
-                "messages": [{"role": "user", "content": "Hello"}],
-                "max_tokens": 5,
-            },
-            timeout=15,
-        )
-        if response.status_code == 200:
-            st.success("✅ API connection successful! Model is responding.")
-        else:
-            st.error(f"❌ API returned status {response.status_code}: {response.text[:200]}")
-    except Exception as e:
-        st.error(f"❌ Connection failed: {str(e)}")
+    with st.spinner("Contacting OpenRouter…"):
+        reply = llm.complete([{"role": "user", "content": "Reply with the single word OK."}],
+                             max_tokens=200, time_budget=40)
+    if reply:
+        st.success(f"✅ Connected — `{llm.last_model}` replied: {reply[:60]}")
+    else:
+        st.error(f"❌ No model answered ({llm.last_error}).")

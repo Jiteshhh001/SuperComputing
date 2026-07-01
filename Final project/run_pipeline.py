@@ -88,8 +88,8 @@ def run_pipeline():
         cleaned_tables["assessments"],
     )
 
-    # Build gap features
-    gap_features = fe.build_gap_features(
+    # Build gap features (training set: history -> next assessment; inference set: current state)
+    gap_train, gap_features = fe.build_gap_features(
         cleaned_tables["studentAssessment"],
         cleaned_tables["assessments"],
         cleaned_tables["studentInfo"],
@@ -130,10 +130,34 @@ def run_pipeline():
     from src.models.gap_detector import GapDetector
 
     gap_detector = GapDetector()
-    gap_results = gap_detector.train(gap_features)
+    gap_results = gap_detector.train(gap_train)
     gap_detector.save()
 
     logger.info(f"  Gap Detector F1: {gap_results['cv_metrics']['f1']['mean']:.4f}")
+
+    # Save headline metrics for the dashboard and documentation
+    import json
+    cv = gap_results["cv_metrics"]
+    metrics = {
+        "dataset": "OULAD (Open University Learning Analytics Dataset)",
+        "students_total": int(student_profiles["id_student"].nunique()),
+        "dkt": {
+            "sequences": len(dkt_data["sequences"]),
+            "concepts": int(dkt_data["num_concepts"]),
+            "test_auc": round(float(dkt_results["test_metrics"]["auc"]), 4),
+            "test_accuracy": round(float(dkt_results["test_metrics"]["accuracy"]), 4),
+        },
+        "gap_detector": {
+            "training_rows": int(len(gap_train)),
+            "positive_rate": round(float(gap_train["next_is_weak"].mean()), 4),
+            "cv_auc": round(float(cv["auc"]["mean"]), 4),
+            "cv_f1": round(float(cv["f1"]["mean"]), 4),
+            "cv_precision": round(float(cv["precision"]["mean"]), 4),
+            "cv_recall": round(float(cv["recall"]["mean"]), 4),
+        },
+    }
+    (MODELS_DIR / "model_metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    logger.info(f"  ✓ Metrics saved to {MODELS_DIR / 'model_metrics.json'}")
 
     # ── Step 6: Train Recommender ───────────────────────────────────────
     logger.info("\n" + "═" * 60)

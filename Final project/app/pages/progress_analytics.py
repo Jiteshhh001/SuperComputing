@@ -78,20 +78,8 @@ def render():
     # Progress report text
     report_text = progress.get("report_text", "No report available.")
     
-    from config import MODULE_NAMES
-    for raw_code in MODULE_NAMES.keys():
-        for suffix in ["_TMA", "_CMA", "_Exam", ""]:
-            target = f"{raw_code}{suffix}"
-            if target in report_text:
-                report_text = report_text.replace(target, format_module_name(target))
-
-    st.markdown(f"""
-    <div class="glass-container">
-        <div style="color: #F8FAFC; white-space: pre-line; line-height: 1.8;">
-            {report_text}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(report_text)
 
     # Improvement by concept
     improvements = progress.get("improvement_by_concept", {})

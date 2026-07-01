@@ -29,17 +29,17 @@ def render():
         generate = st.button("📝 Generate Plan", key="gen_plan", use_container_width=True)
 
     # Generate plan
-    plan = None
-    if generate or "study_plan" not in st.session_state:
+    plans = st.session_state.setdefault("study_plans", {})
+    plan_key = (student_id, daily_hours)
+    plan = plans.get(plan_key)
+    if generate or plan is None:
         with st.spinner("Creating your personalized study plan..."):
             try:
                 plan = agent.get_study_plan(student_id, daily_hours)
-                st.session_state["study_plan"] = plan
+                plans[plan_key] = plan
             except Exception as e:
                 st.error(f"Error: {e}")
                 return
-    else:
-        plan = st.session_state.get("study_plan")
 
     if not plan:
         return

@@ -20,44 +20,45 @@ def render():
     </div>
     """, unsafe_allow_html=True)
 
-    # Quick stats
+    # Quick stats (from the trained models and the shipped data)
     agent = st.session_state.get("agent")
-    student_id = st.session_state.get("selected_student", 10000)
+    student_id = st.session_state.get("selected_student")
+    stats = _load_stats(agent)
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">Active Students</div>
-            <div class="metric-value">2,000+</div>
-            <div class="metric-delta delta-positive">↑ from OULAD dataset</div>
+            <div class="metric-label">Students in Demo</div>
+            <div class="metric-value">{stats['demo_students']:,}</div>
+            <div class="metric-delta delta-positive">models trained on {stats['trained_students']:,} (OULAD)</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col2:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
             <div class="metric-label">Concepts Tracked</div>
-            <div class="metric-value">24</div>
-            <div class="metric-delta delta-positive">Across 4 modules</div>
+            <div class="metric-value">{stats['concepts']}</div>
+            <div class="metric-delta delta-positive">module × assessment type, {stats['modules']} modules</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col3:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">DKT Model AUC</div>
-            <div class="metric-value">>0.75</div>
-            <div class="metric-delta delta-positive">↑ LSTM-based</div>
+            <div class="metric-label">DKT Test AUC</div>
+            <div class="metric-value">{stats['dkt_auc']}</div>
+            <div class="metric-delta delta-positive">LSTM · target &gt; 0.75</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col4:
-        st.markdown("""
+        st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">Resources Available</div>
-            <div class="metric-value">20+</div>
+            <div class="metric-label">Curated Resources</div>
+            <div class="metric-value">{stats['resources']}</div>
             <div class="metric-delta delta-positive">Videos, PDFs, Practice</div>
         </div>
         """, unsafe_allow_html=True)
@@ -80,7 +81,7 @@ def render():
         </div>
         """, unsafe_allow_html=True)
         if st.button("Run Full Analysis", key="home_analyze", use_container_width=True):
-            if agent:
+            if agent and student_id is not None:
                 with st.spinner("Running full analysis pipeline..."):
                     try:
                         result = agent.analyze_student(student_id)
@@ -183,3 +184,29 @@ def render():
             <p style="color: #94A3B8; font-size: 0.85rem; margin: 8px 0 0 0;">{desc}</p>
         </div>
         """, unsafe_allow_html=True)
+
+
+def _load_stats(agent) -> dict:
+    """Headline numbers from models/model_metrics.json and the loaded data."""
+    import json
+    from config import MODELS_DIR
+    stats = {"demo_students": 0, "trained_students": 0, "concepts": 0, "modules": 0,
+             "dkt_auc": "—", "resources": 0}
+    try:
+        m = json.loads((MODELS_DIR / "model_metrics.json").read_text(encoding="utf-8"))
+        stats["trained_students"] = m.get("students_total", 0)
+        stats["dkt_auc"] = f"{m['dkt']['test_auc']:.3f}" if m.get("dkt") else "—"
+    except Exception:
+        pass
+    try:
+        from src.models.recommender import CATALOG
+        stats["resources"] = len(CATALOG)
+        if agent:
+            stats["demo_students"] = len(agent.get_student_ids())
+            cmap = agent.tools._load_dkt_data().get("concept_map", {})
+            stats["concepts"] = len(cmap)
+            stats["modules"] = len({c.split("_")[0] for c in cmap.values()})
+    except Exception:
+        pass
+    return stats
+

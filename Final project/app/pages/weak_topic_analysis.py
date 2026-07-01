@@ -11,7 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 def render():
     st.markdown('<div class="section-header">🎯 Weak Topic Analysis</div>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #94A3B8;">XGBoost-powered gap detection — identify exactly which concepts need work.</p>',
+    st.markdown('<p style="color: #94A3B8;">XGBoost predicts, for each concept the student takes, the risk of scoring below 50% on the next assessment.</p>',
                 unsafe_allow_html=True)
 
     student_id = st.session_state.get("selected_student", 10000)
@@ -23,9 +23,9 @@ def render():
 
     col1, col2 = st.columns([3, 1])
     with col1:
-        top_k = st.slider("Number of gaps to show", 3, 15, 5, key="gap_topk")
+        top_k = st.slider("Concepts to show", 1, 15, 6, key="gap_topk")
     with col2:
-        run = st.button("🔍 Detect Gaps", key="run_gaps", use_container_width=True)
+        run = st.button("🔄 Refresh", key="run_gaps", use_container_width=True)
 
     # Auto-run or on button
     try:
@@ -35,13 +35,14 @@ def render():
         return
 
     weak_topics = gaps.get("weak_topics", [])
+    ranked = gaps.get("all_concepts") or weak_topics
 
     # Summary metrics
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">Total Gaps</div>
+            <div class="metric-label">At-Risk Concepts</div>
             <div class="metric-value">{gaps.get('total_gaps', 0)}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -67,17 +68,20 @@ def render():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Gap severity chart
-    if weak_topics:
+    if not weak_topics and ranked:
+        st.success("🎉 No concept is flagged as at-risk. Concepts are still ranked below so the "
+                   "student knows where to focus next.")
+    if ranked:
         from src.utils.visualization import gap_severity_chart
-        fig = gap_severity_chart(weak_topics[:top_k], f"Weak Topics — Student {student_id}")
+        fig = gap_severity_chart(ranked[:top_k], f"Next-assessment risk by concept — Student {student_id}")
         st.plotly_chart(fig, use_container_width=True)
 
     # Detailed gap cards
-    st.markdown('<div class="section-header">📋 Gap Details</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📋 Concept Risk Ranking</div>', unsafe_allow_html=True)
 
     from config import format_module_name
     
-    for i, gap in enumerate(weak_topics[:top_k]):
+    for i, gap in enumerate(ranked[:top_k]):
         severity = gap.get("severity", "Low")
         severity_class = f"severity-{severity.lower()}"
         confidence = gap.get("confidence", 0)
@@ -97,20 +101,24 @@ def render():
                     </span>
                 </div>
                 <span class="resource-type-badge {severity_class}" style="border-radius: 20px; padding: 4px 16px;">
-                    {severity}
+                    {severity}{" · at risk" if gap.get("is_weak", True) else ""}
                 </span>
             </div>
             <div style="margin-top: 12px; display: flex; gap: 24px;">
                 <div>
-                    <span style="color: #94A3B8; font-size: 0.8rem;">Confidence</span>
+                    <span style="color: #94A3B8; font-size: 0.8rem;">Risk of &lt;50% next</span>
                     <div style="color: #F8FAFC; font-weight: 600;">{confidence:.0%}</div>
                 </div>
                 <div>
                     <span style="color: #94A3B8; font-size: 0.8rem;">Priority</span>
                     <div style="color: #F8FAFC; font-weight: 600;">#{gap.get('priority', i+1)}</div>
                 </div>
+                <div>
+                    <span style="color: #94A3B8; font-size: 0.8rem;">Average score so far</span>
+                    <div style="color: #F8FAFC; font-weight: 600;">{(gap.get("avg_score") or 0):.0%}</div>
+                </div>
                 <div style="flex: 1;">
-                    <span style="color: #94A3B8; font-size: 0.8rem;">Weakness Bar</span>
+                    <span style="color: #94A3B8; font-size: 0.8rem;">Risk</span>
                     <div style="width: 100%; height: 8px; background: #334155; border-radius: 4px; margin-top: 6px;">
                         <div style="width: {int(confidence*100)}%; height: 100%;
                             background: {'#EF4444' if severity == 'Critical' else '#F59E0B'}; border-radius: 4px;"></div>
@@ -120,5 +128,5 @@ def render():
         </div>
         """, unsafe_allow_html=True)
 
-    if not weak_topics:
-        st.success("🎉 No significant knowledge gaps detected! This student is performing well across all concepts.")
+    if not ranked:
+        st.info("No assessment data for this student yet.")

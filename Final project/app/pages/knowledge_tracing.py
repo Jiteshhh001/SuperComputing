@@ -12,7 +12,7 @@ from config import format_module_name
 
 def render():
     st.markdown('<div class="section-header">🧬 Knowledge Tracing</div>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #94A3B8;">Deep Knowledge Tracing (LSTM) — Track mastery per concept over time.</p>',
+    st.markdown('<p style="color: #94A3B8;">Deep Knowledge Tracing (LSTM) — the probability that the student passes their next assessment of each concept (module × assessment type), from their full answer history.</p>',
                 unsafe_allow_html=True)
 
     student_id = st.session_state.get("selected_student", 10000)
@@ -28,16 +28,16 @@ def render():
             with st.spinner("Running DKT model..."):
                 try:
                     result = agent.get_mastery(student_id)
-                    st.session_state["kt_result"] = result
+                    st.session_state.setdefault("kt_results", {})[student_id] = result
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-    result = st.session_state.get("kt_result")
+    result = st.session_state.setdefault("kt_results", {}).get(student_id)
     if not result:
         # Auto-run
         try:
             result = agent.get_mastery(student_id)
-            st.session_state["kt_result"] = result
+            st.session_state["kt_results"][student_id] = result
         except Exception:
             st.info("Click 'Run Knowledge Tracing' to analyze this student.")
             return
@@ -83,6 +83,12 @@ def render():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    if result.get("source") == "observed_scores":
+        st.info("This student has fewer than 3 assessments, so observed average scores are shown "
+                "instead of DKT predictions.")
+    elif result.get("source") == "none":
+        st.info("No assessment history for this student yet.")
+
     # Mastery radar chart
     mastery_data = result.get("mastery_by_concept", {})
     if mastery_data:
@@ -104,6 +110,7 @@ def render():
         <div class="resource-card" style="display: flex; align-items: center; justify-content: space-between;">
             <div>
                 <span style="color: #F8FAFC; font-weight: 600;">{format_module_name(concept)}</span>
+                <span style="color: #64748B; font-size: 0.75rem; margin-left: 6px;">{'' if info.get('attempted', True) else 'predicted · not attempted yet'}</span>
                 <span class="resource-type-badge" style="margin-left: 8px;
                     background: rgba({int(level_info['color'][1:3], 16)}, {int(level_info['color'][3:5], 16)}, {int(level_info['color'][5:7], 16)}, 0.2);
                     color: {level_info['color']};">

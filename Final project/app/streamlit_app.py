@@ -519,15 +519,18 @@ with st.sidebar:
         if student_ids:
             selected_student = st.selectbox(
                 "Select Student",
-                student_ids[:50],
+                student_ids,
                 key="student_selector",
                 label_visibility="collapsed",
-                format_func=lambda x: f"Student #{x}"
+                format_func=lambda x: f"Student #{x}",
+                help="Type to search any of the students in the demo sample",
             )
-            st.session_state.selected_student = selected_student
+            st.session_state.selected_student = int(selected_student)
+            st.caption(f"{len(student_ids):,} students · AI chat: "
+                       f"{'on' if agent.llm.available else 'offline mode'}")
         else:
             st.info("Run pipeline first to load student data")
-            st.session_state.selected_student = 10000  # Default
+            st.session_state.selected_student = None
 
     # Footer
     st.markdown("---")

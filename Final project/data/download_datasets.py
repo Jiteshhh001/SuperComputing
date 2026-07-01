@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from config import RAW_DIR, OULAD_URL, UCI_URL, OULAD_TABLES
+from config import RAW_DIR, OULAD_URL, OULAD_URLS, UCI_URL, OULAD_TABLES
 
 logger = logging.getLogger(__name__)
 
@@ -74,23 +74,37 @@ def download_oulad(target_dir: Path | None = None) -> Path:
     logger.info("━" * 60)
 
     zip_path = target_dir / "oulad.zip"
+    extracted = False
 
-    try:
-        download_file(OULAD_URL, zip_path, "OULAD Dataset (~20MB)")
+    for url in OULAD_URLS:
+        try:
+            if zip_path.exists() and not zipfile.is_zipfile(zip_path):
+                zip_path.unlink()  # remove a previously saved HTML page / partial file
+            download_file(url, zip_path, "OULAD Dataset (~45MB)")
+            if not zipfile.is_zipfile(zip_path):
+                raise ValueError(f"{url} did not return a zip archive")
 
-        # Extract
-        logger.info("  📦 Extracting archive...")
-        with zipfile.ZipFile(zip_path, "r") as zf:
-            zf.extractall(target_dir)
+            logger.info("  📦 Extracting archive...")
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                for member in zf.namelist():
+                    if member.endswith(".csv"):
+                        zf.extract(member, target_dir)
+            zip_path.unlink()
+            logger.info(f"  ✓ OULAD extracted to: {target_dir}")
+            extracted = True
+            break
+        except Exception as e:
+            logger.error(f"  ✗ OULAD download from {url} failed: {e}")
+            if zip_path.exists():
+                zip_path.unlink()
 
-        # Clean up zip
-        zip_path.unlink()
-        logger.info(f"  ✓ OULAD extracted to: {target_dir}")
-
-    except Exception as e:
-        logger.error(f"  ✗ Failed to download OULAD: {e}")
-        logger.info("  → Generating synthetic OULAD data as fallback...")
+    if not extracted:
+        logger.warning("  ⚠ Could not download the real OULAD dataset.")
+        logger.warning("  ⚠ Generating SYNTHETIC OULAD-like data for development only — results will not reflect real students.")
         _generate_synthetic_oulad(target_dir)
+        (target_dir / "SYNTHETIC_DATA.txt").write_text(
+            "These OULAD tables were generated synthetically because the real dataset could not be downloaded."
+        )
 
     # Validate
     _validate_oulad(target_dir)

@@ -1,0 +1,19 @@
+{
+  "dataset": "OULAD (Open University Learning Analytics Dataset)",
+  "students_total": 32593,
+  "dkt": {
+    "sequences": 19956,
+    "concepts": 14,
+    "test_auc": 0.8293,
+    "test_accuracy": 0.9225
+  },
+  "gap_detector": {
+    "training_rows": 130018,
+    "positive_rate": 0.0848,
+    "decision_threshold": 0.23,
+    "cv_auc": 0.8705,
+    "cv_f1": 0.4822,
+    "cv_precision": 0.4383,
+    "cv_recall": 0.5358
+  }
+}
