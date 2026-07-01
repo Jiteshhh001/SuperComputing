@@ -24,6 +24,8 @@ from src.agent.prompts import CHAT_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
+AGENT_VERSION = 2  # bump when the agent's interface changes (the dashboard re-imports stale code)
+
 # Keyword intents → which tools to run before answering
 INTENTS = {
     "mastery": ["mastery", "master", "level", "score", "know", "strong", "strength", "perform", "grade", "good at"],
@@ -44,6 +46,7 @@ def detect_intents(message: str) -> list[str]:
 
 
 class LearningAgent:
+    VERSION = AGENT_VERSION
     """
     Orchestrates the 5 learning tools with multi-layer memory.
 

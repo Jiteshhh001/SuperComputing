@@ -457,12 +457,28 @@ if "analysis_cache" not in st.session_state:
     st.session_state.analysis_cache = {}
 
 
+REQUIRED_AGENT_VERSION = 2
+
+
+def _import_agent_module():
+    """Import the agent, purging stale modules left over from an older deployment
+    (Streamlit only hot-reloads files under app/, not src/ or config.py)."""
+    import importlib
+    module = importlib.import_module("src.agent.agent")
+    if getattr(module, "AGENT_VERSION", 0) < REQUIRED_AGENT_VERSION:
+        for name in list(sys.modules):
+            if name in ("config", "src") or name.startswith("src."):
+                del sys.modules[name]
+        module = importlib.import_module("src.agent.agent")
+    return module
+
+
 def get_agent():
-    """Lazy-load the learning agent."""
-    if st.session_state.agent is None:
+    """Lazy-load the learning agent (re-created if it comes from older code)."""
+    agent = st.session_state.agent
+    if agent is None or getattr(agent, "VERSION", 0) < REQUIRED_AGENT_VERSION:
         try:
-            from src.agent.agent import LearningAgent
-            st.session_state.agent = LearningAgent()
+            st.session_state.agent = _import_agent_module().LearningAgent()
         except Exception as e:
             st.error(f"Failed to initialize agent: {e}")
             return None
