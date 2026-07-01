@@ -1,35 +1,56 @@
-# SuperComputing Internship
+# SuperComputing Summer Internship — Jitesh Kumar
 
-This repository contains the assignments, notebooks, and projects completed during my Summer Internship focused on AI, Machine Learning, and NVIDIA DGX Infrastructure. The curriculum progressed from foundational ML concepts to advanced Deep Learning, culminating in production-grade Agentic AI systems and a comprehensive Capstone Project.
+Assignments, notebooks and projects completed during the **3-Week Summer Internship (10 – 30 June 2026)** at the **Center of Supercomputing, KIET Group of Institutions, Ghaziabad** (organized with IIPC and IICC; NVIDIA DGX infrastructure, offline mode). The programme progressed from foundational Machine Learning to Deep Learning and Agentic AI, and ended with an end-to-end capstone project.
+
+| | |
+|---|---|
+| **Student** | Jitesh Kumar — B.Tech CSE (AI & AIML), Section B |
+| **Registration No.** | 202401100400103 |
+| **Program** | Project Internship (IT304P), Academic Session 2026–27 |
+| **Mentor** | Dr. Richa Singh |
+
+> **Viewing notebooks:** if GitHub is slow to render a large notebook, use its *nbviewer* link. Notebooks read their CSV datasets (Kaggle/UCI) from the same folder; the data files are not stored in this repository.
 
 ---
 
 ## 📂 Repository Index
 
-### 1. Fundamental Machine Learning (Week 1)
-*Focus: Supervised & Unsupervised Learning algorithms, data preprocessing, and model evaluation.*
-- 📓 **[Linear Regression](LinearReg.ipynb)** - Energy consumption prediction using regression models.
-- 📓 **[Decision Trees](decisiontree.ipynb)** - Implementation of tree-based classification.
-- 📓 **[Support Vector Machines (SVM)](svm.ipynb)** - Classification using SVM margins and kernels.
-- 📓 **[Titanic Survival Analysis](titanic.ipynb)** - Exploratory data analysis and survival prediction.
+### Week 1 — Fundamental Machine Learning
+*Supervised learning algorithms, data preprocessing and model evaluation.*
 
-### 2. Deep Learning & Neural Networks (Week 2)
-*Focus: Artificial Neural Networks, CNNs, model optimization, and computer vision.*
-- 📓 **[MNIST Digit Classification](MNIST.ipynb)** - Building and training a neural network for image recognition.
-- 📓 **[Customer Churn Prediction](Customer_Churn_Prediction.ipynb)** - Advanced predictive modeling on structured tabular data.
+| Project | Description | Links |
+|---|---|---|
+| **Linear Regression** | Building energy-consumption prediction with regression (R², MSE). | [Open](LinearReg.ipynb) · [nbviewer](https://nbviewer.org/github/Jiteshhh001/SuperComputing/blob/main/LinearReg.ipynb) |
+| **Decision Tree** | Tree-based classification of Iris species with visualisation and metrics. | [Open](decisiontree.ipynb) · [nbviewer](https://nbviewer.org/github/Jiteshhh001/SuperComputing/blob/main/decisiontree.ipynb) |
+| **Support Vector Machine** | SVM classification of Iris species with feature scaling and evaluation. | [Open](svm.ipynb) · [nbviewer](https://nbviewer.org/github/Jiteshhh001/SuperComputing/blob/main/svm.ipynb) |
+| **Titanic Survival** | Exploratory data analysis of passenger survival. | [Open](titanic.ipynb) · [nbviewer](https://nbviewer.org/github/Jiteshhh001/SuperComputing/blob/main/titanic.ipynb) |
 
-### 3. Agentic AI & Generative Systems (Week 3)
-*Focus: LLMs, autonomous decision making, and multi-agent workflows.*
-- 🤖 **[Smart Career Copilot](smart-career-copilot/)** - A multi-agent system utilizing LangGraph, FastAPI, and React for autonomous resume optimization, technical interview coaching, and deep web research.
+### Week 2 — Deep Learning & Neural Networks
+*ANN / CNN architectures, regularisation (dropout, data augmentation) and tabular deep learning.*
 
-### 4. Capstone Project (Week 4)
-*Focus: End-to-end AI application development, from data pipeline to interactive dashboard.*
-- 🎓 **[LearnFlow AI: Personalized Learning Agent](Final%20project/)** - An end-to-end ML/DL pipeline using Deep Knowledge Tracing (LSTM) and XGBoost to detect learning gaps, complete with a hybrid recommendation engine and an 11-page Streamlit dashboard.
+| Project | Description | Links |
+|---|---|---|
+| **MNIST Digit Classification** | CNN with dropout and data augmentation for handwritten-digit recognition (TensorFlow/Keras). | [Open](MNIST.ipynb) · [nbviewer](https://nbviewer.org/github/Jiteshhh001/SuperComputing/blob/main/MNIST.ipynb) |
+| **Customer Churn Prediction** | Telco churn classification: Logistic Regression → XGBoost → MLP, SHAP and revenue-at-risk analysis. | [Open](Customer_Churn_Prediction.ipynb) · [nbviewer](https://nbviewer.org/github/Jiteshhh001/SuperComputing/blob/main/Customer_Churn_Prediction.ipynb) |
+
+### Week 3 — Agentic AI & Generative Systems
+*LLM agents, tool use, RAG and multi-agent workflows.*
+
+| Project | Description | Links |
+|---|---|---|
+| **Smart Career Copilot** | Multi-agent platform (LangGraph, FastAPI, React) for resume optimisation, interview coaching, deep research and autonomous coding, with a RAG memory layer. | [Project folder](smart-career-copilot/) · [README](smart-career-copilot/README.md) |
+
+### Week 4 — Capstone Project
+*End-to-end AI application, from data pipeline to interactive dashboard.*
+
+| Project | Description | Links |
+|---|---|---|
+| **LearnFlow AI — Personalized Learning Agent** | Deep Knowledge Tracing (LSTM) and XGBoost gap detection on OULAD + UCI data, a hybrid recommender (collaborative + content-based + LLM ranking), a 4-layer-memory LangChain agent and an 11-page Streamlit dashboard with a FastAPI backend. | [Project folder](Final%20project/) · [README](Final%20project/README.md) |
 
 ---
 
-## 🛠️ Technologies & Frameworks Used
-- **Languages:** Python, JavaScript (React/Vite)
-- **ML / Deep Learning:** PyTorch, XGBoost, Scikit-learn, Pandas, NumPy
+## 🛠️ Technologies & Frameworks
+- **Languages:** Python, JavaScript (React / Vite)
+- **ML / Deep Learning:** PyTorch, TensorFlow/Keras, XGBoost, scikit-learn, pandas, NumPy
 - **Agentic AI:** LangChain, LangGraph, ChromaDB (RAG)
 - **Web & APIs:** FastAPI, Streamlit, Docker

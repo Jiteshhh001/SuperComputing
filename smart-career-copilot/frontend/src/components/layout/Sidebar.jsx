@@ -1,5 +1,5 @@
 /**
- * Sidebar — Agent navigation with session list, inspired by ChatGPT/Claude.
+ * Sidebar — Agent navigation with session list.
  */
 
 import React from 'react';

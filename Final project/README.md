@@ -69,8 +69,8 @@ Data Pipeline          ML/DL Models              AI Agent              Dashboard
 
 ### 1. Clone & Setup
 ```bash
-git clone https://github.com/<your-username>/personalized-learning-agent.git
-cd personalized-learning-agent
+git clone https://github.com/Jiteshhh001/SuperComputing.git
+cd "SuperComputing/Final project"
 python -m venv venv
 venv\Scripts\activate       # Windows
 # source venv/bin/activate  # Linux/macOS
@@ -112,9 +112,9 @@ uvicorn api.main:app --reload
 ## 📁 Project Structure
 
 ```
-personalized-learning-agent/
+Final project/
 ├── config.py                       # Central configuration (hyperparams, paths, thresholds)
-├── requirements.txt                # Pinned dependencies
+├── requirements.txt                # Python dependencies
 ├── run_pipeline.py                 # End-to-end pipeline runner
 ├── .env.template                   # Environment variable template
 ├── .gitignore                      # Git ignore rules
@@ -212,18 +212,6 @@ personalized-learning-agent/
 | **Backend** | FastAPI + Uvicorn |
 | **Frontend** | Streamlit + Plotly |
 | **Data** | OULAD (32K students) + UCI Student Performance (649 students) |
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ---
 
