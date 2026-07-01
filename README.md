@@ -8,8 +8,10 @@ This repository contains the assignments, notebooks, and projects completed duri
 
 ### 1. Fundamental Machine Learning (Week 1)
 *Focus: Supervised & Unsupervised Learning algorithms, data preprocessing, and model evaluation.*
+- 📓 **[Linear Regression](LinearReg.ipynb)** - Energy consumption prediction using regression models.
 - 📓 **[Decision Trees](decisiontree.ipynb)** - Implementation of tree-based classification.
 - 📓 **[Support Vector Machines (SVM)](svm.ipynb)** - Classification using SVM margins and kernels.
+- 📓 **[Titanic Survival Analysis](titanic.ipynb)** - Exploratory data analysis and survival prediction.
 
 ### 2. Deep Learning & Neural Networks (Week 2)
 *Focus: Artificial Neural Networks, CNNs, model optimization, and computer vision.*
