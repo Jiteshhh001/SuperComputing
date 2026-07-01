@@ -166,9 +166,8 @@ def render():
     models_data = [
         ("Deep Knowledge Tracing", "LSTM", "Sequential mastery tracking per concept", "AUC-ROC > 0.75"),
         ("Gap Detector", "XGBoost", "Weak topic identification with severity ranking", "F1 > 0.70"),
-        ("Collaborative Filtering", "SVD", "Student similarity-based resource matching", "NDCG@5"),
-        ("Content-Based Filter", "Sentence-BERT", "Semantic matching of resources to gaps", "Precision@3"),
-        ("LLM Ranker", "OpenRouter", "Contextual re-ranking of recommendations", "Qualitative"),
+        ("LLM Recommender", "OpenRouter", "Explained resource suggestions for each weak concept", "Qualitative"),
+        ("Offline Catalog", "Curated resources", "Fallback when the LLM is unavailable - app always works", "Always available"),
     ]
 
     for name, tech, desc, metric in models_data:

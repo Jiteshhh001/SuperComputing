@@ -1,1 +1,1 @@
-"""ML/DL models — DKT, Gap Detector, Hybrid Recommender."""
+"""ML/DL models — DKT, Gap Detector, Recommender."""

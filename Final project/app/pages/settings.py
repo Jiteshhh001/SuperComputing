@@ -206,7 +206,8 @@ def render():
             st.dataframe(xgb_df_data, use_container_width=True, hide_index=True)
 
         with sub_tab3:
-            st.markdown("#### Hybrid Recommender Configuration")
+            st.markdown("#### Recommender Configuration")
+            st.caption("The running recommender uses the OpenRouter LLM with a curated offline fallback catalog. The collaborative / content-based parameters below document the original hybrid design and are not used at runtime.")
             rec_df_data = {
                 "Parameter": list(RECOMMENDER_CONFIG.keys()),
                 "Value": [str(v) for v in RECOMMENDER_CONFIG.values()],
@@ -220,7 +221,7 @@ def render():
 
             st.markdown(f"""
             <div class="glass-container">
-                <div style="color: #F8FAFC; font-weight: 700; margin-bottom: 12px;">Hybrid Weights</div>
+                <div style="color: #F8FAFC; font-weight: 700; margin-bottom: 12px;">Design Weights (reference)</div>
                 <div style="margin-bottom: 8px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                         <span style="color: #6366F1; font-weight: 600;">Collaborative Filtering</span>
@@ -505,7 +506,7 @@ def render():
             <div style="font-size: 2rem; margin-bottom: 8px;">🧠</div>
             <div style="color: #F8FAFC; font-weight: 700; font-size: 1.1rem;">LearnFlow AI v1.0</div>
             <div style="color: #94A3B8; font-size: 0.85rem; margin-top: 4px;">
-                Powered by DKT (LSTM) + XGBoost + Hybrid Recommender + OpenRouter LLM
+                Powered by DKT (LSTM) + XGBoost + LLM Recommender (OpenRouter) + offline fallback catalog
             </div>
             <div style="color: #64748B; font-size: 0.75rem; margin-top: 8px;">
                 Built with ❤️ for personalized education

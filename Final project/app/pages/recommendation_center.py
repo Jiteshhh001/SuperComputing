@@ -1,5 +1,5 @@
 """
-Recommendation Center Page — Hybrid resource recommendations.
+Recommendation Center Page — LLM resource recommendations with an offline fallback.
 """
 import streamlit as st
 from pathlib import Path
@@ -13,10 +13,9 @@ def render():
     st.markdown('<div class="section-header">📚 Recommendation Center</div>', unsafe_allow_html=True)
     st.markdown("""
     <p style="color: #94A3B8;">
-        Three-stage hybrid recommendations:
-        <span style="color: #6366F1; font-weight: 600;">Collaborative Filtering</span> +
-        <span style="color: #8B5CF6; font-weight: 600;">Content-Based</span> +
-        <span style="color: #06B6D4; font-weight: 600;">LLM Ranking</span>
+        Recommendations from the
+        <span style="color: #06B6D4; font-weight: 600;">OpenRouter LLM</span> with a
+        <span style="color: #8B5CF6; font-weight: 600;">curated offline catalog</span> as fallback
     </p>
     """, unsafe_allow_html=True)
 
@@ -89,7 +88,7 @@ def render():
             icon = {"video": "🎬", "pdf": "📄", "practice": "✏️"}.get(rtype, "📎")
             difficulty = r.get("difficulty", "unknown")
             duration = r.get("duration_min", "?")
-            source = r.get("source", "hybrid")
+            source = r.get("source", "llm")
 
             diff_color = {"beginner": "#22C55E", "intermediate": "#F59E0B", "advanced": "#EF4444"}.get(difficulty, "#94A3B8")
 

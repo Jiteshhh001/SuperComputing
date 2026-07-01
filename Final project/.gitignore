@@ -31,16 +31,7 @@ ENV/
 Thumbs.db
 desktop.ini
 
-# ── Trained Models (large binary files) ──────────────────────
-models/*.pt
-models/*.pth
-models/*.pkl
-models/*.joblib
-models/*.h5
-
-# ── Data (downloaded/generated — reproducible via pipeline) ──
-data/raw/
-data/processed/
+# ── Runtime data (created while the app runs) ────────────────
 data/memory/
 data/resources/
 

@@ -1,11 +1,11 @@
-# SuperComputing Summer Internship — Jitesh Kumar
+# CoE – Supercomputing Summer Internship — Jitesh Kumar
 
-Assignments, notebooks and projects completed during the **3-Week Summer Internship (10 – 30 June 2026)** at the **Center of Supercomputing, KIET Group of Institutions, Ghaziabad** (organized with IIPC and IICC; NVIDIA DGX infrastructure, offline mode). The programme progressed from foundational Machine Learning to Deep Learning and Agentic AI, and ended with an end-to-end capstone project.
+Assignments, notebooks and projects completed during the **3-Week Summer Internship (10 – 30 June 2026)** at **CoE – Supercomputing (Center of Supercomputing), KIET Group of Institutions, Ghaziabad** (organized with IIPC and IICC; NVIDIA DGX infrastructure; offline at the Supercomputing Center, H Block). The programme progressed from foundational Machine Learning to Deep Learning and Agentic AI, and ended with an end-to-end capstone project.
 
 | | |
 |---|---|
 | **Student** | Jitesh Kumar — B.Tech CSE (AI & AIML), Section B |
-| **Registration No.** | 202401100400103 |
+| **University Roll No.** | 2400291530103 |
 | **Program** | Project Internship (IT304P), Academic Session 2026–27 |
 | **Mentor** | Dr. Richa Singh |
 
@@ -38,19 +38,19 @@ Assignments, notebooks and projects completed during the **3-Week Summer Interns
 
 | Project | Description | Links |
 |---|---|---|
-| **Smart Career Copilot** | Multi-agent platform (LangGraph, FastAPI, React) for resume optimisation, interview coaching, deep research and autonomous coding, with a RAG memory layer. | [Project folder](smart-career-copilot/) · [README](smart-career-copilot/README.md) |
+| **Smart Career Copilot** | Multi-agent platform (LangChain, FastAPI, React) with a reason-act-observe-reflect orchestrator for resume optimisation, interview coaching, deep research and autonomous coding, with a RAG memory layer. | [Project folder](smart-career-copilot/) · [README](smart-career-copilot/README.md) |
 
 ### Week 4 — Capstone Project
 *End-to-end AI application, from data pipeline to interactive dashboard.*
 
 | Project | Description | Links |
 |---|---|---|
-| **LearnFlow AI — Personalized Learning Agent** | Deep Knowledge Tracing (LSTM) and XGBoost gap detection on OULAD + UCI data, a hybrid recommender (collaborative + content-based + LLM ranking), a 4-layer-memory LangChain agent and an 11-page Streamlit dashboard with a FastAPI backend. | [Project folder](Final%20project/) · [README](Final%20project/README.md) |
+| **LearnFlow AI — Personalized Learning Agent** | Deep Knowledge Tracing (LSTM) and XGBoost gap detection on OULAD + UCI data, an LLM-based recommender with an offline fallback catalog, a 5-tool agent with 4-layer memory and an 11-page Streamlit dashboard with a FastAPI backend. | [Project folder](Final%20project/) · [README](Final%20project/README.md) |
 
 ---
 
 ## 🛠️ Technologies & Frameworks
 - **Languages:** Python, JavaScript (React / Vite)
 - **ML / Deep Learning:** PyTorch, TensorFlow/Keras, XGBoost, scikit-learn, pandas, NumPy
-- **Agentic AI:** LangChain, LangGraph, ChromaDB (RAG)
+- **Agentic AI:** LangChain, OpenRouter / OpenAI LLM APIs, ChromaDB (RAG)
 - **Web & APIs:** FastAPI, Streamlit, Docker

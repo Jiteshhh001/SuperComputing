@@ -5,11 +5,13 @@ Configures CORS, mounts routers, and manages application lifecycle.
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
@@ -86,11 +88,32 @@ async def health_check():
     )
 
 
+# ── Optional: serve the built React app (single-container deployment) ──
+
+_static_dir = Path(os.getenv("FRONTEND_DIST", "./static"))
+_serve_frontend = (_static_dir / "index.html").exists()
+
+
 @app.get("/")
 async def root():
-    """Root endpoint redirect."""
+    """Serve the web app when it is bundled, otherwise a short API welcome."""
+    if _serve_frontend:
+        return FileResponse(_static_dir / "index.html")
     return {
         "message": f"Welcome to {settings.app_name} API",
         "docs": "/docs",
         "health": "/api/health",
     }
+
+
+if _serve_frontend:
+    if (_static_dir / "assets").is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_static_dir / "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str):
+        """Serve static files and fall back to index.html for client-side routes."""
+        candidate = (_static_dir / full_path).resolve()
+        if full_path and candidate.is_file() and _static_dir.resolve() in candidate.parents:
+            return FileResponse(candidate)
+        return FileResponse(_static_dir / "index.html")

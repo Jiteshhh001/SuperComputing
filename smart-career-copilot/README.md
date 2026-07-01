@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Multi--Agent-6366f1?style=for-the-badge)](https://github.com/langchain-ai/langgraph)
+[![LangChain](https://img.shields.io/badge/LangChain-Multi--Agent-6366f1?style=for-the-badge)](https://www.langchain.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 
 *A production-grade multi-agent AI system for resume optimization, deep research, autonomous coding, and interview preparation.*
@@ -30,7 +30,7 @@
                     └──────────────┬──────────────┘
                                    │
                     ┌──────────────▼──────────────┐
-                    │    LangGraph Orchestrator    │
+                    │     Agent Orchestrator       │
                     │  Reason → Act → Observe →    │
                     │  Reflect → Retry             │
                     └──────────────┬──────────────┘
@@ -172,7 +172,7 @@ Open **http://localhost:3000** in your browser.
 smart-career-copilot/
 ├── backend/
 │   ├── app/
-│   │   ├── agents/          # LangGraph agent implementations
+│   │   ├── agents/          # Agent implementations
 │   │   │   ├── orchestrator.py   # Main orchestration pipeline
 │   │   │   ├── router.py         # Intent classification
 │   │   │   ├── resume_agent.py   # Resume analysis
@@ -222,6 +222,19 @@ smart-career-copilot/
 
 ---
 
+## ☁️ Deployment (single container)
+
+The root `Dockerfile` builds the React app and serves it from the FastAPI backend, so one container gives one public URL.
+
+```bash
+docker build -t career-copilot .
+docker run -p 8000:8000 -e OPENAI_API_KEY=sk-... -e TAVILY_API_KEY=tvly-... career-copilot
+```
+
+Open http://localhost:8000. To host it online, create a *Web Service* from this repository on [Render](https://render.com) using the `render.yaml` Blueprint in the repository root, and add `OPENAI_API_KEY` (and optionally `TAVILY_API_KEY`) as environment variables. A valid OpenAI API key is required for the agents to respond.
+
+---
+
 ## 🧪 Running Tests
 
 ```bash
@@ -237,7 +250,7 @@ python -m pytest tests/ -v
 |---|---|
 | **Frontend** | React 19, Vite, Zustand, React Router, Axios |
 | **Backend** | FastAPI, Python 3.12, Pydantic v2, SQLAlchemy |
-| **AI/ML** | LangChain, LangGraph, OpenAI GPT-4o/4o-mini |
+| **AI/ML** | LangChain, OpenAI GPT-4o/4o-mini |
 | **RAG** | ChromaDB, OpenAI Embeddings, Recursive Text Splitter |
 | **Search** | Tavily API, arXiv API, BeautifulSoup |
 | **Database** | SQLite (sessions/messages), ChromaDB (vectors/memory) |
@@ -256,6 +269,6 @@ Once the backend is running, visit:
 
 <div align="center">
 
-**Built using LangGraph, React, and FastAPI**
+**Built using LangChain, React, and FastAPI**
 
 </div>

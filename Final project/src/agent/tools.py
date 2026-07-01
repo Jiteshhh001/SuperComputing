@@ -252,8 +252,8 @@ class AgentTools:
         top_k: int = 5,
     ) -> dict:
         """
-        Recommend learning resources using the hybrid engine.
-        Combines collaborative filtering, content-based matching, and LLM ranking.
+        Recommend learning resources.
+        Uses the OpenRouter LLM and falls back to a curated offline catalog.
         """
         logger.info(f"📚 Resource Recommender: Finding resources for student {student_id}")
 

@@ -4,13 +4,12 @@
   <img src="https://img.shields.io/badge/XGBoost-189FDD?style=for-the-badge&logo=xgboost&logoColor=white" />
   <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" />
   <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
-  <img src="https://img.shields.io/badge/LangChain-Agent-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" />
 </p>
 
 # 🧠 LearnFlow AI — Personalized Student Learning Agent
 
-An end-to-end ML/DL pipeline that analyzes student performance data, identifies weak knowledge areas using **Deep Knowledge Tracing (LSTM)**, detects learning gaps with **XGBoost**, recommends resources via a **hybrid engine** (Collaborative Filtering + Content-Based Filtering + LLM Ranking), and delivers personalized 7-day study plans through an **AI agent** — all surfaced in an elegant **11-page Streamlit dashboard**.
+An end-to-end ML/DL pipeline that analyzes student performance data, identifies weak knowledge areas using **Deep Knowledge Tracing (LSTM)**, detects learning gaps with **XGBoost**, recommends resources with an **LLM-based recommender** (OpenRouter) backed by a curated offline catalog, and delivers personalized 7-day study plans through an **AI agent** — all surfaced in an elegant **11-page Streamlit dashboard**.
 
 ---
 
@@ -21,7 +20,7 @@ Data Pipeline          ML/DL Models              AI Agent              Dashboard
 ┌──────────────┐    ┌──────────────────┐    ┌───────────────┐    ┌──────────────┐
 │ OULAD + UCI  │───▶│ DKT (LSTM)      │───▶│ 5 Agent Tools │───▶│ 11-Page      │
 │ Datasets     │    │ XGBoost Gap Det. │    │ 4-Layer       │    │ Streamlit    │
-│ Feature Eng. │    │ Hybrid Recommend.│    │ Memory System │    │ + FastAPI    │
+│ Feature Eng. │    │ LLM Recommender  │    │ Memory System │    │ + FastAPI    │
 └──────────────┘    └──────────────────┘    └───────────────┘    └──────────────┘
 ```
 
@@ -32,10 +31,7 @@ Data Pipeline          ML/DL Models              AI Agent              Dashboard
 ### ML/DL Models
 - **Deep Knowledge Tracing (DKT)** — 2-layer LSTM tracking mastery per concept over time
 - **Gap Detector** — XGBoost classifier identifying weak topics with severity ranking
-- **Hybrid Recommender** — 3-stage pipeline:
-  - Collaborative Filtering (SVD via `scikit-surprise`)
-  - Content-Based Filtering (Sentence-BERT embeddings)
-  - LLM Ranking (OpenRouter API — free tier)
+- **Recommender** — OpenRouter LLM (free tier) produces explained resource suggestions per weak concept; if no API key is set or the LLM is unavailable, it falls back to a curated offline catalog of real learning resources, so the dashboard always works
 
 ### AI Agent (4-Layer Memory)
 - **Conversation Memory** — Rolling window chat history per student
@@ -52,7 +48,7 @@ Data Pipeline          ML/DL Models              AI Agent              Dashboard
 | 🔬 EDA | 8-tab interactive analysis (distributions, correlations, etc.) |
 | 🧬 Knowledge Tracing | DKT mastery visualization with per-concept progress bars |
 | 🎯 Weak Topic Analysis | Gap severity charts, ranked weakness cards |
-| 📚 Recommendation Center | Hybrid resource cards with type filtering |
+| 📚 Recommendation Center | Resource cards with type filtering |
 | 📅 AI Study Planner | 7-day plan generator with timeline visualization |
 | 📈 Progress Analytics | Improvement tracking, concept-level change reports |
 | 💬 AI Chat | Conversational UI with quick actions and memory inspector |
@@ -94,7 +90,7 @@ python run_pipeline.py
 This will:
 - Download OULAD + UCI datasets (or generate synthetic fallbacks)
 - Clean and engineer features
-- Train DKT (LSTM), XGBoost Gap Detector, and Hybrid Recommender
+- Train DKT (LSTM) and the XGBoost Gap Detector, and set up the recommender
 - Initialize the AI agent and run a test analysis
 
 ### 4. Launch the Dashboard
@@ -122,8 +118,8 @@ Final project/
 │
 ├── data/
 │   ├── download_datasets.py        # OULAD + UCI auto-downloader with fallbacks
-│   ├── raw/                        # Downloaded datasets (git-ignored)
-│   ├── processed/                  # Feature-engineered data (git-ignored)
+│   ├── raw/                        # OULAD + UCI datasets (included for the demo)
+│   ├── processed/                  # Feature-engineered data (included for the demo)
 │   ├── memory/                     # Persistent agent memory (git-ignored)
 │   └── resources/                  # Static learning resources
 │
@@ -137,7 +133,7 @@ Final project/
 │   │   ├── dkt_model.py            # LSTM-based Deep Knowledge Tracing architecture
 │   │   ├── dkt_trainer.py          # Training loop with early stopping, AUC metrics
 │   │   ├── gap_detector.py         # XGBoost weak-topic classifier
-│   │   └── recommender.py          # 3-stage hybrid recommendation engine
+│   │   └── recommender.py          # LLM recommender with offline fallback catalog
 │   │
 │   ├── agent/
 │   │   ├── memory.py               # 4-layer persistent memory system
@@ -149,7 +145,7 @@ Final project/
 │       ├── metrics.py              # AUC-ROC, F1, NDCG@K, Precision@K
 │       └── visualization.py        # Plotly charts with dark theme
 │
-├── models/                         # Saved model artifacts (git-ignored)
+├── models/                         # Saved model artifacts (included for the demo)
 │   ├── dkt_best.pt                 # Trained DKT LSTM weights
 │   └── gap_detector.pkl            # Trained XGBoost gap detector
 │
@@ -191,12 +187,14 @@ Final project/
 
 ## 📊 Evaluation Metrics
 
-| Component | Metric | Benchmark |
-|-----------|--------|-----------|
+| Component | Metric | Target |
+|-----------|--------|--------|
 | DKT (LSTM) | AUC-ROC | >0.75 |
 | Gap Detector (XGBoost) | F1-Score | >0.70 |
-| Recommender (Hybrid) | NDCG@5 | >0.60 |
-| Recommender (Hybrid) | Precision@3 | >0.50 |
+| Recommender | NDCG@5 | >0.60 |
+| Recommender | Precision@3 | >0.50 |
+
+Saved DKT checkpoint (best epoch): validation AUC-ROC **0.82**, accuracy 0.76 over 12 concepts.
 
 ---
 
@@ -205,13 +203,20 @@ Final project/
 | Category | Technologies |
 |----------|-------------|
 | **Deep Learning** | PyTorch (LSTM) |
-| **Machine Learning** | XGBoost, scikit-learn, scikit-surprise |
-| **NLP & Embeddings** | Sentence-Transformers (all-MiniLM-L6-v2) |
+| **Machine Learning** | XGBoost, scikit-learn |
 | **LLM Integration** | OpenRouter API (free tier — Llama, Gemini, DeepSeek) |
-| **AI Agent** | LangChain |
+| **AI Agent** | Custom tool-calling agent (5 tools, 4-layer memory) |
 | **Backend** | FastAPI + Uvicorn |
 | **Frontend** | Streamlit + Plotly |
 | **Data** | OULAD (32K students) + UCI Student Performance (649 students) |
+
+---
+
+## ☁️ Deployment
+
+**Streamlit Community Cloud (free):** sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub → *Create app* → repository `Jiteshhh001/SuperComputing`, branch `main`, main file path `Final project/app/streamlit_app.py` → *Deploy*. Optional: in *Advanced settings → Secrets* add `OPENROUTER_API_KEY = "your-key"` for LLM-generated recommendations and chat (without it the app uses the offline catalog).
+
+**Docker:** `docker build -t learnflow-ai .` then `docker run -p 8501:8501 learnflow-ai` (open http://localhost:8501).
 
 ---
 
@@ -221,4 +226,3 @@ Final project/
 - [UCI Student Performance Dataset](https://archive.ics.uci.edu/dataset/320/student+performance)
 - [OpenRouter](https://openrouter.ai/) for free-tier LLM access
 - [Streamlit](https://streamlit.io/) for the dashboard framework
-- [LangChain](https://www.langchain.com/) for AI agent orchestration

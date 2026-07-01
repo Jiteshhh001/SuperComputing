@@ -137,7 +137,7 @@ def run_pipeline():
 
     # ── Step 6: Train Recommender ───────────────────────────────────────
     logger.info("\n" + "═" * 60)
-    logger.info("STEP 6: Train Hybrid Recommender")
+    logger.info("STEP 6: Set up Recommender")
     logger.info("═" * 60)
 
     from src.models.recommender import HybridRecommender

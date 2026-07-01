@@ -1,0 +1,18 @@
+# Render Blueprint: deploys Smart Career Copilot (React + FastAPI) as one web service.
+services:
+  - type: web
+    name: smart-career-copilot
+    runtime: docker
+    dockerfilePath: ./smart-career-copilot/Dockerfile
+    dockerContext: ./smart-career-copilot
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"

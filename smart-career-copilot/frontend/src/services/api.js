@@ -4,7 +4,9 @@
 
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Local development talks to the backend on :8000; a deployed build uses the same origin it was served from.
+const IS_LOCAL = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_BASE = import.meta.env.VITE_API_URL || (IS_LOCAL ? 'http://localhost:8000' : window.location.origin);
 
 const api = axios.create({
   baseURL: `${API_BASE}/api`,
